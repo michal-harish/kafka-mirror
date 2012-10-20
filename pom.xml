@@ -1,0 +1,61 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>co.gridport.kafka</groupId>
+  <artifactId>kafka-mirror</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Kafka Partitioned Mirror</name>
+  <description>Configurable Kafka Mirror with destination topic partitioner support</description>
+  <distributionManagement>
+    <snapshotRepository>
+        <id>gridport.co-snapshots</id>
+        <url>http://aos3.gridport.co:8081/nexus/content/repositories/snapshots</url>        
+    </snapshotRepository>
+  </distributionManagement>  
+  
+  <repositories>
+    <repository>
+        <id>gridport.co-snapshots</id>
+        <name>GridPort Snapshots Repository</name>
+        <url>http://aos3.gridport.co:8081/nexus/content/repositories/snapshots</url>
+        <snapshots>
+            <updatePolicy>always</updatePolicy>
+        </snapshots>
+    </repository>   
+    <repository>
+        <id>gridport.co-releases</id>
+        <name>GridPort Releases Repository</name>
+        <url>http://aos3.gridport.co:8081/nexus/content/repositories/releases</url>
+    </repository>
+  </repositories>
+  
+  <dependencies>
+    <dependency>
+        <groupId>org.apache.kafka</groupId>
+        <artifactId>kafka-core</artifactId>
+        <version>0.7.2</version>
+    </dependency>
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-log4j12</artifactId>
+        <version>1.6.6</version>
+    </dependency>  
+    <dependency>
+	    <groupId>org.slf4j</groupId>
+	    <artifactId>slf4j-log4j12</artifactId>
+	    <version>1.6.6</version>
+	</dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+        <plugin>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+                <source>1.6</source>
+                <target>1.6</target>
+            </configuration>
+        </plugin>
+    </plugins> 
+  </build>
+    
+</project>
