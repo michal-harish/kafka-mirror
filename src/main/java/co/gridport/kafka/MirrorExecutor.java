@@ -1,6 +1,5 @@
 package co.gridport.kafka;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -23,6 +22,7 @@ import kafka.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 /**
  * Partitioned Kafka Mirror 
  * 
@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
  * A mirror application can instantiate multiple Mirror Exectors
  * if it mirrors multiple source clusters onto a single destination cluster.
  * 
- * @author michal.harish@gmail.com
+ * @author michal.harish
  *
- * @param <K> Partitioner Key type
+ * @param <V> Partitioner Value type of the message
  */
 
 public class MirrorExecutor <V> {
@@ -45,23 +45,43 @@ public class MirrorExecutor <V> {
         
     private Properties consumerProps;
     
-    private MirrorEncoder<V> encoder;    
-    private TopicFilter sourceTopicFilter;       
+    private MirrorResolver resolver;    
+    private TopicFilter sourceTopicFilter;  
+    private ConsumerConnector consumer;
         
     private Properties producerProps;
+    private Producer<Integer, Message> producer;
+    
+    protected long srcCount;
+    protected long destCount;
 
+    /**
+     * 
+     * @param sourceZk
+     * @param consumerGroup
+     * @param sourceTopicFilter
+     * @param destZk
+     * @param destResolverClass
+     * @param maxLatency Maximum total mirroring footprint in ms 
+     * @throws InstantiationException
+     * @throws IllegalAccessException
+     */
     public MirrorExecutor(        
         String sourceZk,
         String consumerGroup,
         TopicFilter sourceTopicFilter,
         String destZk,        
-        Class<? extends MirrorEncoder<V>> destEncoderClass
+        Class<? extends MirrorResolver> destResolverClass,
+        long maxLatency
     ) throws InstantiationException, IllegalAccessException 
     {
+        String halfMaxLatency = String.valueOf(Math.round(maxLatency / 2));
+        
         consumerProps = new Properties();  
         consumerProps.put("zk.connect", sourceZk);
         consumerProps.put("zk.connectiontimeout.ms", "10000");
         consumerProps.put("groupid", consumerGroup);
+        consumerProps.put("backoff.increment.ms", halfMaxLatency);
         
         this.sourceTopicFilter = sourceTopicFilter;
         
@@ -69,79 +89,116 @@ public class MirrorExecutor <V> {
         producerProps.put("zk.connect", destZk);
         producerProps.put("producer.type", "async");
         producerProps.put("batch.size", "1000");
-        producerProps.put("queue.time", "250");
+        producerProps.put("queue.time", halfMaxLatency );
         producerProps.put("compression.codec", "1");
         producerProps.put("partitioner.class", MirrorPartitioner.class.getName());
-        producerProps.put("serializer.class", destEncoderClass.getName());
         
-        encoder = destEncoderClass.newInstance();
+        resolver = destResolverClass.newInstance();
 
+    }
+
+    protected void shutdown()
+    {
+        if (producer != null)
+        {
+            log.debug("CLOSING MIRROR PRODUCER");
+            producer.close();
+            producer = null;
+        }
+        if (consumer != null)
+        {
+            log.debug("CLOSING MIRROR CONSUMER CONNECTOR");
+            consumer.shutdown();
+            consumer = null;
+        }
     }
     
     public void run()
-    {               
-        log.debug("SOURCE ZK: " + consumerProps.get("zk.connect"));               
-        log.debug("SOURCE TOPIC: " + this.sourceTopicFilter.toString());
-        log.debug("DEST ZK: " + producerProps.get("zk.connect"));               
-        log.debug("DEST SERIALIZER CLASS: " + producerProps.get("serializer.class"));
-        log.debug("DEST PARTITONER CLASS: " + producerProps.get("partitioner.class"));
+    {           
+        log.info("Initializing Kafka Mirror Executor");
+        log.info("Mirror soruce ZK: " + consumerProps.get("zk.connect"));               
+        log.info("Mirror source topics: " + this.sourceTopicFilter.toString());
+        log.info("Mirror source backoff sleep: " + consumerProps.get("backoff.increment.ms"));
+        log.info("Mirror dest ZK: " + producerProps.get("zk.connect"));                               
+        log.info("Mirror dest queue time:" + producerProps.get("queue.time"));
+        
+        //register shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                log.debug("Mirror shutdown signalled");
+                shutdown();
+            }            
+        });
         
         //prepare producer
-        final Producer<Integer, V> producer 
-            = new Producer<Integer, V>(new ProducerConfig(producerProps));     
+        producer = new Producer<Integer, Message>(new ProducerConfig(producerProps));     
 
         //create consumer streams 
-        ConsumerConfig consumerConfig = new ConsumerConfig(consumerProps);
-        ConsumerConnector consumerConnector = Consumer.createJavaConsumerConnector(consumerConfig);    
-        List<KafkaStream<Message>> streams = 
-            consumerConnector.createMessageStreamsByFilter(sourceTopicFilter);
+        consumer = Consumer.createJavaConsumerConnector(new ConsumerConfig(consumerProps));
         
-        log.debug("MIRROR CONSUMER POOL SIZE = " + streams.size());
+        List<KafkaStream<Message>> streams = consumer.createMessageStreamsByFilter(sourceTopicFilter);
+        
+        log.info("Mirror consumer executor pool = " + streams.size());
+        
         ExecutorService executor = Executors.newFixedThreadPool(streams.size());
+        
         for(final KafkaStream<Message> stream: streams) {
             executor.submit(new Runnable() {
                 public void run() {
-                    log.debug("LISTENING FOR MESSAGES...");
+                    log.info("Kafka Mirror input task listening for messages");
                     ConsumerIterator<Message> it = stream.iterator();                    
                     while(it.hasNext())
                     {
-                        MessageAndMetadata<Message> metaMsg = it.next();
-                        //read message meta data
-                        String topic = metaMsg.topic();                        
-                        //read raw source message from the stream iterator
-                        Message message = metaMsg.message();
-                        ByteBuffer buffer = message.payload();
-                        byte [] bytes = new byte[buffer.remaining()];
-                        buffer.get(bytes);            
-                        //decode, hash and send destination message
-                        V destMessage = encoder.decode(bytes);
-                        log.debug("GOT MESSAGE `" + (String) destMessage + "` IN TOPIC " + topic );
-                        Integer hash= encoder.toHash(destMessage);
-                        ArrayList<V> messageList = new ArrayList<V>();
-                        messageList.add(destMessage);
-                        ProducerData<Integer,V> data = new ProducerData<Integer,V>(
-                            topic,
-                            hash,
-                            messageList
-                        );
-                        log.debug("SENDING DEST MESSAGE FOR HASH " + hash);
-                        producer.send(data);
+                        MessageAndMetadata<Message> metaMsg = it.next();                     
+                        //decode the message and resolve the destination topic-partitionHash                        
+                        log.debug("GOT MESSAGE IN TOPIC " + metaMsg.topic());
+                        MirrorDestination dest = resolver.resolve(metaMsg);
+                        srcCount++;
+                        
+                        ArrayList<Message> messageList = new ArrayList<Message>();
+                        messageList.add(metaMsg.message());
+                        
+                        List<ProducerData<Integer, Message>> dataForMultipleTopics 
+                            = new ArrayList<ProducerData<Integer, Message>>();                        
+                        for(String destTopic: dest.getTopics())
+                        {
+                            destCount++;
+                            ProducerData<Integer,Message> dataForSingleTopic 
+                                = new ProducerData<Integer,Message>(
+                                    destTopic,
+                                    dest.getHash(),
+                                    messageList
+                                )
+                            ;
+                            dataForMultipleTopics.add(dataForSingleTopic);
+                            log.debug("ADDING MESSAGE WITH HASH " + dest.getHash()+ " TO TOPIC " + destTopic);
+                        }                        
+                        
+                        producer.send(dataForMultipleTopics);
                     } 
-                    log.debug("FINISHED");      
                 }
             });
         }
-        
+                
         try {
+            executor.shutdown();
             while(!executor.isTerminated())
             {
-                executor. awaitTermination(1, TimeUnit.MINUTES);
+                long srcCountSnapshot = srcCount;
+                long destCountSnapshot = destCount;
+                executor.awaitTermination(1, TimeUnit.MINUTES);
+                long srcCountPerMinute = srcCount - srcCountSnapshot;
+                long destCountPerMinute = destCount - destCountSnapshot;
+                log.info("Kafka Mirror stats: " +
+            		"src/sec=" + (srcCountPerMinute / 60) +
+            		", dest/sec=" + (destCountPerMinute / 60)
+        		);
             }
         } catch (InterruptedException e) {
             executor.shutdownNow();
         }
-        
-        producer.close();
-        consumerConnector.shutdown();
+
+        shutdown();
     }
 }

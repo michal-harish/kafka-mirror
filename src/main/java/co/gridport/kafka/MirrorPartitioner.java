@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
  * 
  * @author michal.harish@gmail.com
  * 
- * @param <V> Message value type
  */
 public final class MirrorPartitioner implements Partitioner<Integer> {
 
