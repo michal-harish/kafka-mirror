@@ -15,6 +15,15 @@
         <url>http://aos3.gridport.co:8081/nexus/content/repositories/releases</url>        
     </repository>    
   </distributionManagement>  
+  <scm>
+    <url>http://xp-dev.com/svn/gridport.co/artifacts/kafka-mirror/master</url>    
+  </scm>
+  <developers>
+    <developer>
+        <name>Michal Harish</name>
+        <email>michal.harish@gmail.com</email>
+    </developer>
+  </developers>
   
   <repositories>
     <repository>
