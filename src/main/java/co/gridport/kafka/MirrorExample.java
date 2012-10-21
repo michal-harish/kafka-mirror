@@ -22,9 +22,6 @@ import org.slf4j.LoggerFactory;
  * 
  * The mirror should be deployed at the destination cluster.
  * 
- * @todo load properties from /etc/kafka/mirror.properties 
- * @todo mirror.topics.whitelist = ..., mirror.consumer.zk.connect =.., mirror.producer.zk.connect = ...
- * 
  * @author michal.harish
  */
 
@@ -42,7 +39,35 @@ public class MirrorExample {
     {        
         String destZk = "localhost:2181";
         String mirrorConsumerGroup = "central_mirror";
-        long maxLatency = 500;     
+        long maxLatency = 500;
+        
+        /* 
+         * TODO load propertie from /etc/kafka/mirror.properties copying all mirror.n.consumer
+         * properties into a separate exectutor.
+         * 
+        Properties props = new Properties();
+        props.put("mirror.producer.zk.connect", destZk);
+        props.put("mirror.producer.producer.type", "async");
+        props.put("mirror.producer.queue.time", "250" );
+        props.put("mirror.producer.compression.codec", "1");
+        props.put("mirror.1.consumer.zk.connect", "aos3.gridport.co:2181");
+        props.put("mirror.1.consumer.zk.connectiontimeout.ms", "10000");
+        props.put("mirror.1.consumer.backoff.increment.ms", "250");
+        props.put("mirror.1.consumer.groupid", mirrorConsumerGroup);
+        props.put("mirror.1.topics.whitelist", "topic1,topic2");        
+        props.put("mirror.2.consumer.zk.connect", "aos1.gridport.co:2181");
+        props.put("mirror.2.consumer.zk.connectiontimeout.ms", "3000");
+        props.put("mirror.2.consumer.backoff.increment.ms", "250");
+        props.put("mirror.2.consumer.groupid", mirrorConsumerGroup);
+        props.put("mirror.2.topics.whitelist", "topic1,topic2");        
+        
+        for(Object key: props.keySet())
+        {
+            String propertyKey = (String) key;
+            System.out.println(propertyKey);
+        }
+        System.exit(0);
+        */
         
         MirrorExecutor mirror1 = new MirrorExecutor(            
             "aos3.gridport.co:2181"
