@@ -1,5 +1,7 @@
 package co.gridport.kafka;
 
+import java.util.Random;
+
 import kafka.producer.Partitioner;
 
 import org.slf4j.Logger;
@@ -20,8 +22,18 @@ public final class MirrorPartitioner implements Partitioner<Integer> {
 
     static private Logger log = LoggerFactory.getLogger(MirrorPartitioner.class);
     
+    static Random generator = new Random();
+    
     public int partition(Integer hash, int numPartitions) {
-        int result =  hash % numPartitions;
+        int result;
+        if (hash == null)
+        {
+            result = generator.nextInt(numPartitions);
+        }
+        else
+        {
+            result =  hash % numPartitions;            
+        }
         log.debug("PARTITIONING " + hash + " FOR " + numPartitions + " PARTITONS >> " + result);
         return result;
     }

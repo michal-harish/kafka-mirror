@@ -1,6 +1,8 @@
 package co.gridport.kafka;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 import kafka.consumer.Whitelist;
 import kafka.message.Message;
@@ -115,20 +117,23 @@ public class MirrorExample {
     
     public static class ExampleEncoder implements MirrorResolver
     {
-        public MirrorDestination resolve(MessageAndMetadata<Message> metaMsg)
+        public List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg)
         {
+            ArrayList<MirrorDestination> result = new ArrayList<MirrorDestination>();
+            
             //decode the message payload
             ByteBuffer buffer = metaMsg.message().payload();
             byte [] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
-            //generate hash
+            
+            //mirror the message onto the same topic with a string hash partitioning
             String payload = new String(bytes);            
-            Integer hash = Math.abs(payload.hashCode());
-            MirrorDestination result = new MirrorDestination(hash);
-            //mirror the message onto the same topic 
-            result.addTopic(metaMsg.topic());
-            //mirror all messages onto an extra monitor topic
-            result.addTopic("monitor");            
+            Integer hash = Math.abs(payload.hashCode());          
+            result.add(new MirrorDestination(metaMsg.topic(), hash));                        
+            
+            //mirror all messages onto an extra monitor topic without any partitioning strategy 
+            result.add(new MirrorDestination("monitor"));
+            
             return result;
         }
         

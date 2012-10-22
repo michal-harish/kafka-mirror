@@ -1,5 +1,7 @@
 package co.gridport.kafka;
 
+import java.util.List;
+
 import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
 
@@ -15,7 +17,7 @@ import kafka.message.MessageAndMetadata;
  */
 public interface MirrorResolver {
 
-    public MirrorDestination resolve(
+    public List<MirrorDestination> resolve(
         MessageAndMetadata<Message> metaMsg
     );
     

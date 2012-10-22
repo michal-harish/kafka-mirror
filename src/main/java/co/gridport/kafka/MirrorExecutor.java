@@ -164,7 +164,7 @@ public class MirrorExecutor {
                         MessageAndMetadata<Message> metaMsg = it.next();                     
                         //decode the message and resolve the destination topic-partitionHash                        
                         log.debug("GOT MESSAGE IN TOPIC " + metaMsg.topic());
-                        MirrorDestination dest = resolver.resolve(metaMsg);
+                        List<MirrorDestination> destList = resolver.resolve(metaMsg);
                         srcCount++;
                         
                         ArrayList<Message> messageList = new ArrayList<Message>();
@@ -172,18 +172,18 @@ public class MirrorExecutor {
                         
                         List<ProducerData<Integer, Message>> dataForMultipleTopics 
                             = new ArrayList<ProducerData<Integer, Message>>();                        
-                        for(String destTopic: dest.getTopics())
+                        for(MirrorDestination dest: destList)
                         {
                             destCount++;
                             ProducerData<Integer,Message> dataForSingleTopic 
                                 = new ProducerData<Integer,Message>(
-                                    destTopic,
+                                    dest.getTopic(),
                                     dest.getHash(),
                                     messageList
                                 )
                             ;
                             dataForMultipleTopics.add(dataForSingleTopic);
-                            log.debug("ADDING MESSAGE WITH HASH " + dest.getHash()+ " TO TOPIC " + destTopic);
+                            log.debug("ADDING MESSAGE WITH HASH " + dest.getHash()+ " TO TOPIC " + dest.getTopic());
                         }                        
                         
                         producer.send(dataForMultipleTopics);

@@ -1,6 +1,5 @@
 package co.gridport.kafka;
 
-import java.util.ArrayList;
 
 /**
  * MirrorDestination represents an ouput mapping 
@@ -13,31 +12,29 @@ import java.util.ArrayList;
  */
 public class MirrorDestination {
     
-    private ArrayList<String> topics;    
+    private String topic;    
     private Integer hash;
     
-    public MirrorDestination(
-        Integer hash
-    )
+    public MirrorDestination(String topic, Integer hash)
     {
-        this.hash = hash;
-        topics = new ArrayList<String>();
+        this.topic = topic;
+        this.hash = hash;        
     }
     
-    public void addTopic(String topic)
+    public MirrorDestination(String topic)
     {
-        topics.add(topic);
+        this.topic = topic;
+        this.hash = null;
     }
-    
-    public ArrayList<String> getTopics()
+        
+    public String getTopic()
     {
-        return topics;
+        return topic;
     }
     
     public Integer getHash()
     {
         return hash;
     }
-    
     
 }
