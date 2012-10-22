@@ -17,6 +17,14 @@ import kafka.message.MessageAndMetadata;
  */
 public interface MirrorResolver {
 
+    /**
+     * resolve method will be called for each incoming message
+     * and is expected to return the list of destinations onto
+     * which the message will be mapped in the destination cluster.
+     *   
+     * @param metaMsg
+     * @return
+     */
     public List<MirrorDestination> resolve(
         MessageAndMetadata<Message> metaMsg
     );

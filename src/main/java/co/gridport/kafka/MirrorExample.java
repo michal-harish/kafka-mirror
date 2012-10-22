@@ -110,8 +110,8 @@ public class MirrorExample {
             }
         }
         
-        mirror1.join();
-        mirror2.join();
+        mirror1.shutdown();
+        mirror2.shutdown();
               
     }
     
@@ -131,7 +131,7 @@ public class MirrorExample {
             Integer hash = Math.abs(payload.hashCode());          
             result.add(new MirrorDestination(metaMsg.topic(), hash));                        
             
-            //mirror all messages onto an extra monitor topic without any partitioning strategy 
+            //mirror all messages onto an extra monitor topic without any partitioning key 
             result.add(new MirrorDestination("monitor"));
             
             return result;

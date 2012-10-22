@@ -62,12 +62,13 @@ public class MirrorExecutor {
     private boolean started = false; 
 
     /**
+     * Constructor
      * 
      * @param sourceZk Source Cluster ZooKeeper Connection String
      * @param consumerGroup
      * @param sourceZkTimeout Source Cluster ZooKeeper connection timeout ms
      * @param sourceTopicFilter Source topic Whitelist or Blacklist filter
-     * @param destZk Destination Clustoer ZooKeeper Connection String
+     * @param destZk Destination Cluster ZooKeeper Connection String
      * @param destResolverClass
      * @param maxLatency Maximum total mirroring footprint in ms 
      * @throws InstantiationException
@@ -104,6 +105,9 @@ public class MirrorExecutor {
 
     }
     
+    /**
+     * Start the mirror streaming of the messages.
+     */
     public void start()
     {         
         if (started)
@@ -146,7 +150,7 @@ public class MirrorExecutor {
             @Override
             public void run() {
                 log.debug("Mirror shutdown signalled");
-                shutdown();
+                cleanup();
             }            
         });        
         
@@ -178,12 +182,19 @@ public class MirrorExecutor {
                             ProducerData<Integer,Message> dataForSingleTopic 
                                 = new ProducerData<Integer,Message>(
                                     dest.getTopic(),
-                                    dest.getHash(),
+                                    dest.getKey(),
                                     messageList
                                 )
                             ;
                             dataForMultipleTopics.add(dataForSingleTopic);
-                            log.debug("ADDING MESSAGE WITH HASH " + dest.getHash()+ " TO TOPIC " + dest.getTopic());
+                            if (dest.getKey() == null)
+                            {
+                                log.debug("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING");
+                            }
+                            else
+                            {
+                                log.debug("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH PARTITIONING KEY " + dest.getKey());
+                            }                            
                         }                        
                         
                         producer.send(dataForMultipleTopics);
@@ -193,11 +204,19 @@ public class MirrorExecutor {
         }
     }
     
+    /**
+     * @return TRUE If the mirror executor is running
+     */
     public boolean started()
     {
         return started;
     }
     
+    /**
+     * Get mirror throughput metrics.
+     * 
+     * @return Stream statistics in a single line format
+     */
     public String getStats()
     {
         long secondsElapsed = (System.currentTimeMillis() - snapshotTimestamp) / 1000;
@@ -209,11 +228,15 @@ public class MirrorExecutor {
         long destCountPerSecond = (destCount - destCountSnapshot) / secondsElapsed;
         destCountSnapshot = destCount;        
         
-        return  "src/sec=" + srcCountPerSecond+", dest/sec=" + destCountPerSecond;
-        
+        return "src/sec=" + srcCountPerSecond+
+            ", dest/sec=" + destCountPerSecond+
+            " " + consumerProps.get("zk.connect");
     }
     
-    public void join()
+    /**
+     * Graceful shutdown of the mirror execution.
+     */
+    public void shutdown()
     {
         if (started)
         {
@@ -228,10 +251,13 @@ public class MirrorExecutor {
                 executor.shutdownNow();
             }            
         }
-        shutdown();
+        cleanup();
     }
     
-    private void shutdown()
+    /**
+     * Internal method for closing connections.
+     */
+    private void cleanup()
     {
         if (producer != null)
         {

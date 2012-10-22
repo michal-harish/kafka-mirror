@@ -11,11 +11,11 @@ import org.slf4j.LoggerFactory;
  * Mirror Partitioner is a final implementation of kafka producer partitioner
  * that always expects an Integer hash as a partitioning key.
  * 
- * It is a responsibility of the MirrorEncoder implementation to provide
- * code which reduces the message into an integer hash by which the 
+ * It is a responsibility of the MirrorResolver implementation to provide
+ * logic which reduces the message into an integer hash by which the 
  * destination topic is then partitioned.
  * 
- * @author michal.harish@gmail.com
+ * @author michal.harish
  * 
  */
 public final class MirrorPartitioner implements Partitioner<Integer> {
@@ -24,17 +24,17 @@ public final class MirrorPartitioner implements Partitioner<Integer> {
     
     static Random generator = new Random();
     
-    public int partition(Integer hash, int numPartitions) {
+    public int partition(Integer key, int numPartitions) {
         int result;
-        if (hash == null)
+        if (key == null)
         {
             result = generator.nextInt(numPartitions);
         }
         else
         {
-            result =  hash % numPartitions;            
+            result =  key % numPartitions;            
         }
-        log.debug("PARTITIONING " + hash + " FOR " + numPartitions + " PARTITONS >> " + result);
+        log.debug("PARTITIONING " + key + " FOR " + numPartitions + " PARTITONS >> " + result);
         return result;
     }
 }

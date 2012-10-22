@@ -2,10 +2,10 @@ package co.gridport.kafka;
 
 
 /**
- * MirrorDestination represents an ouput mapping 
- * for a hash-to-topics. This means that a message
- * set identified by a single hash can be directed
- * to multiple redundant topics.
+ * MirrorDestination represents an output mapping 
+ * for a message. This is used in a List<MirrorDestination> form
+ * to provide potentially n output topic with their own
+ * partitioning strategy for a single input message.
  * 
  * @author michal.harish
  *
@@ -13,28 +13,46 @@ package co.gridport.kafka;
 public class MirrorDestination {
     
     private String topic;    
-    private Integer hash;
+    private Integer key;
     
-    public MirrorDestination(String topic, Integer hash)
+    /**
+     * Constructor with partitioning key
+     * 
+     * @param topic
+     * @param key
+     */
+    public MirrorDestination(String topic, Integer key)
     {
         this.topic = topic;
-        this.hash = hash;        
+        this.key = key;        
     }
     
+    /**
+     * Constructor with topic only. This will
+     * result in random partitioning.
+     * 
+     * @param topic
+     */
     public MirrorDestination(String topic)
     {
         this.topic = topic;
-        this.hash = null;
+        this.key = null;
     }
-        
+       
+    /**
+     * @return Topic part of this destination
+     */
     public String getTopic()
     {
         return topic;
     }
     
-    public Integer getHash()
+    /**
+     * @return Partitioning key of this destination
+     */
+    public Integer getKey()
     {
-        return hash;
+        return key;
     }
     
 }
