@@ -1,0 +1,1 @@
+TODO co.gridport.kafka.Mirror which loads properties through String[] args
