@@ -7,11 +7,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import kafka.consumer.Blacklist;
 import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.ConsumerIterator;
 import kafka.consumer.KafkaStream;
 import kafka.consumer.TopicFilter;
+import kafka.consumer.Whitelist;
 import kafka.javaapi.consumer.ConsumerConnector;
 import kafka.javaapi.producer.Producer;
 import kafka.javaapi.producer.ProducerData;
@@ -50,6 +52,7 @@ public class MirrorExecutor {
         
     private Properties producerProps;
     private Producer<Integer, Message> producer;
+    private Class<? extends MirrorResolver> resolverClass;
     
     private ExecutorService executor;
     
@@ -59,61 +62,49 @@ public class MirrorExecutor {
     protected long destCountSnapshot;
     protected long snapshotTimestamp;
     
+    protected static int maxPartitions = 0;
+    
     private boolean started = false; 
-
+    
     /**
      * Constructor
      * 
-     * @param sourceZk Source Cluster ZooKeeper Connection String
-     * @param consumerGroup
-     * @param sourceZkTimeout Source Cluster ZooKeeper connection timeout ms
      * @param sourceTopicFilter Source topic Whitelist or Blacklist filter
-     * @param destZk Destination Cluster ZooKeeper Connection String
-     * @param destResolverClass
-     * @param maxLatency Maximum total mirroring footprint in ms 
-     * @throws InstantiationException
-     * @throws IllegalAccessException
+     * @param consumerProperties Kafka consumer properties 
+     * @param producerProperties Kafka Producer properties
+     * @param resolverClassName
+     * @throws Exception 
+     * @throws ClassNotFoundException
      */
-    public MirrorExecutor(        
-        String sourceZk,
-        long sourceZkTimeout,
-        TopicFilter sourceTopicFilter,
-        String consumerGroup,
-        Class<? extends MirrorResolver> destResolverClass,
-        String destZk,        
-        long maxLatency
-    ) throws InstantiationException, IllegalAccessException 
+    public MirrorExecutor(
+        Properties consumerProperties,
+        Properties producerProperties,
+        Class<? extends MirrorResolver> resolverClass     
+    ) throws Exception 
     {
-        String halfMaxLatency = String.valueOf(Math.round(maxLatency / 2));
-        
-        consumerProps = new Properties();  
-        consumerProps.put("zk.connect", sourceZk);
-        consumerProps.put("zk.connectiontimeout.ms", String.valueOf(sourceZkTimeout));
-        consumerProps.put("groupid", consumerGroup);
-        consumerProps.put("backoff.increment.ms", halfMaxLatency);
-        
-        this.sourceTopicFilter = sourceTopicFilter;
-        
-        producerProps = new Properties();         
-        producerProps.put("zk.connect", destZk);
-        producerProps.put("producer.type", "async");
-        producerProps.put("queue.time", halfMaxLatency );
-        producerProps.put("compression.codec", "1");
-        producerProps.put("partitioner.class", MirrorPartitioner.class.getName());
-        
-        resolver = destResolverClass.newInstance();
-
+        if (consumerProperties.containsKey("topics.whitelist")) {
+            sourceTopicFilter = new Whitelist(consumerProperties.getProperty("topics.whitelist"));
+        } else if (consumerProperties.containsKey("topics.blacklist")) {
+            sourceTopicFilter = new Blacklist(consumerProperties.getProperty("topics.blacklist"));
+        } else {
+            throw new Exception("Consumer must have either topics.whitelist " +
+            		"or topics.blacklist property set to a coma-separated list of topics"
+            );
+        }
+        this.resolverClass = resolverClass;
+        this.consumerProps = consumerProperties;
+        this.producerProps = producerProperties;
     }
     
     /**
-     * Start the mirror streaming of the messages.
+     * Start the mirror streaming of the messages and return
+     * true for success and false when failed.  
      */
-    public void start()
-    {         
+    public boolean start()
+    {           
         if (started)
-        {
-            log.info("Kafka Mirror Executor already running.");
-            return;
+        {            
+            return true;
         }
         log.info("Initializing Kafka Mirror Executor");
         log.info("Mirror soruce ZK: " + consumerProps.get("zk.connect"));               
@@ -121,14 +112,24 @@ public class MirrorExecutor {
         log.info("Mirror source backoff sleep: " + consumerProps.get("backoff.increment.ms"));
         log.info("Mirror dest ZK: " + producerProps.get("zk.connect"));                               
         log.info("Mirror dest queue time:" + producerProps.get("queue.time"));
-                
+        log.info("Mirror resolver class:" + resolverClass.getName());
+        
+        //instantiate resolver
+        try {
+            resolver = resolverClass.newInstance();
+        } catch (Exception e1) {
+            log.error("Could not instantiate resolver " + resolverClass.getName(), e1);
+            return false;
+        } 
+                       
         //prepare producer
         try {
+            producerProps.put("partitioner.class", MirrorPartitioner.class.getName());
             producer = new Producer<Integer, Message>(new ProducerConfig(producerProps));     
         } catch (Exception e)
         {
             log.warn("Mirror producer failed: " + e.getMessage());
-            return;
+            return false;
         }
 
         //create consumer streams 
@@ -137,7 +138,7 @@ public class MirrorExecutor {
         } catch (Exception e)
         {
             log.warn("Mirror consumer connector failed: " + e.getMessage());
-            return;
+            return false;
         }
                 
         List<KafkaStream<Message>> streams = consumer.createMessageStreamsByFilter(sourceTopicFilter);
@@ -149,7 +150,7 @@ public class MirrorExecutor {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                log.debug("Mirror shutdown signalled");
+                log.debug("MIRROR SHUTDOWN SIGNALLED");
                 cleanup();
             }            
         });        
@@ -161,7 +162,7 @@ public class MirrorExecutor {
         for(final KafkaStream<Message> stream: streams) {
             executor.submit(new Runnable() {
                 public void run() {
-                    log.info("Kafka Mirror input task listening for messages");
+                    log.debug("KAFKA MIRROR EXECUTOR TASK LISTENING FOR MESSAGES");
                     ConsumerIterator<Message> it = stream.iterator();                    
                     while(it.hasNext())
                     {
@@ -202,6 +203,7 @@ public class MirrorExecutor {
                 }
             });
         }
+        return true;
     }
     
     /**
@@ -226,10 +228,13 @@ public class MirrorExecutor {
         srcCountSnapshot = srcCount;
         
         long destCountPerSecond = (destCount - destCountSnapshot) / secondsElapsed;
-        destCountSnapshot = destCount;        
+        destCountSnapshot = destCount;       
+        
+        maxPartitions = 0;
         
         return "src/sec=" + srcCountPerSecond+
             ", dest/sec=" + destCountPerSecond+
+            ", high.partition=" + maxPartitions +
             " " + consumerProps.get("zk.connect");
     }
     

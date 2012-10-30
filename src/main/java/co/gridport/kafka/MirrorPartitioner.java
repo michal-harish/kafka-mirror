@@ -35,6 +35,10 @@ public final class MirrorPartitioner implements Partitioner<Integer> {
             result =  key % numPartitions;            
         }
         log.debug("PARTITIONING " + key + " FOR " + numPartitions + " PARTITONS >> " + result);
+        if (numPartitions > MirrorExecutor.maxPartitions)
+        {
+            MirrorExecutor.maxPartitions = numPartitions;
+        }
         return result;
     }
 }
