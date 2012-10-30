@@ -116,13 +116,11 @@ public class Mirror {
             }
         }
     }
-
-
+    
     /**
-     * 
-     * @param statFrequency Frequency in seconds at which stats will be logged
+     * Start mirroring, e.g. start all executor threads
      */
-    public void run(long statFrequency)
+    public void start()
     {
         //start all executors
         int startedExecutors = 0;
@@ -134,6 +132,28 @@ public class Mirror {
             }
         }
         log.info("Running mirror executors: " + startedExecutors);
+    }
+    
+    /**
+     * Stop all executors.
+     */
+    public void stop()
+    {
+        //stop all executors
+        for(MirrorExecutor executor: executors)
+        {
+            executor.shutdown();
+        }
+    }
+
+
+    /**
+     * 
+     * @param statFrequency Frequency in seconds at which stats will be logged
+     */
+    public void run(long statFrequency)
+    {
+        start();
         
         //observe mirror stats while running
         Thread main = Thread.currentThread();
@@ -156,12 +176,8 @@ public class Mirror {
         } catch (InterruptedException e) {
             log.warn("Mirror execution interruped.. ");
         }
-
-        //stop all executors
-        for(MirrorExecutor executor: executors)
-        {
-            executor.shutdown();
-        }
+        
+        stop();
     }
     
 }
