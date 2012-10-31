@@ -1,4 +1,4 @@
-package com.visualdna.kafka;
+package net.imagini.kafka;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
