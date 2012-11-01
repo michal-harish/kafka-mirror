@@ -6,6 +6,8 @@
     which receives all messages from every configured consumer and is expected to
     return a list of MirrorDestination objects each of which is a pair of topic-hash
     while the hash is optional in which case null (and thus random partition) will be used.
+    The hash is in fact expected to be an integer value rather than any kind of hash 
+    so that the built-in partitioner can transparently use a simple hash % num_partitions. 
      
 == Running the mirror out of the box ==
 
