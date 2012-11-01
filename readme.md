@@ -46,5 +46,5 @@
     Resolver and Producer configuration are common to all consumers, but there can be 
     multiple consuemrs consuming from different clusters or sets of topics.
 
-TESTING GIT OVER SVN ORIGIN
+
 
