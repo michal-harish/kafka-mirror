@@ -1,11 +1,16 @@
 == About the MirrorResolver interface ==
 
     MirrorResolver is the heart of the mirror decisions about where the incoming message
-    should go and with what partition key. All is done in a single method:
-            List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg)
-    which receives all messages from every configured consumer and is expected to
+    should go and with what partition key. 
+    
+    All is done in a single method..
+    
+       public List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg) { .. }
+            
+    ..which receives all messages from every configured consumer and is expected to
     return a list of MirrorDestination objects each of which is a pair of topic-hash
     while the hash is optional in which case null (and thus random partition) will be used.
+    
     The hash is in fact expected to be an integer value rather than any kind of hash 
     so that the built-in partitioner can transparently use a simple hash % num_partitions. 
      
