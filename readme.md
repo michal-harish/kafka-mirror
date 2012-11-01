@@ -1,7 +1,21 @@
+== About the MirrorResolver interface ==
+
+    MirrorResolver is the heart of the mirror decisions about where the incoming message
+    should go and with what partition key. All is done in a single method:
+            List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg)
+    which receives all messages from every configured consumer and is expected to
+    return a list of MirrorDestination objects each of which is a pair of topic-hash
+    while the hash is optional in which case null (and thus random partition) will be used.
+     
 == Running the mirror out of the box ==
 
-    java -cp /etc/kafka/:kafka-mirror-0.7.2.jar co.gridport.Kafka /etc/kafka/mirror.properties
-
+    svn co http://xp-dev.com/svn/gridport.co/artifacts/kafka-mirror
+    mvn package assembly:single    
+    java -cp src/test/resources/:target/kafka-mirror-0.7.2.jar co.gridport.kafka.Mirror /etc/kafka/mirror.properties
+    
+    This will require /etc/kafka/mirror.properties to exist and properties as per example.
+    The src/test/resources/: is added to the classpath to provide access to log4j.properties
+    but may be replaced with custom ones. 
 
 == Wrapping the Mirror in a java program ==
 
