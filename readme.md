@@ -40,8 +40,8 @@
     See src/test/resources/mirror.properties and run /src/test/java/TestMirror.java for example.
 
     - resolver section - contains configuration destination resolver
-    - producer sectinos - contains configuration for destination producer
-    - consumer(s) section - contains all consumers
+    - producer sectinos - contains the producer configuration for the destination cluster
+    - consumer(s) section - contains all consumers which consume from the source clusters
     
     Resolver and Producer configuration are common to all consumers, but there can be 
     multiple consuemrs consuming from different clusters or sets of topics.
