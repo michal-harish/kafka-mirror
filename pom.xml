@@ -13,8 +13,8 @@
     <repository>
         <id>gridport.co-releases</id>
         <url>http://aos3.gridport.co:8081/nexus/content/repositories/releases</url>        
-    </repository>    
-  </distributionManagement>  
+    </repository>
+  </distributionManagement>
   <scm>
     <url>http://xp-dev.com/svn/gridport.co/artifacts/kafka-mirror/master</url>    
   </scm>
@@ -84,7 +84,7 @@
         <snapshots>
             <updatePolicy>always</updatePolicy>
         </snapshots>
-    </repository>   
+    </repository>
     <repository>
         <id>gridport.co-releases</id>
         <name>GridPort Releases Repository</name>
