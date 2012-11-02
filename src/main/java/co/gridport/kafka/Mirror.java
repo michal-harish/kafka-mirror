@@ -10,6 +10,14 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This is a default Mirror wrapper that can be run as main with properties
+ * file passed as argument, or can be instantiated embedded inside Java 
+ * program using Mirror(Properties properties) constructor and either start()
+ * or run() methods. 
+ * 
+ * @author Michal Harish
+ */
 public class Mirror {
     
     static private Logger log = LoggerFactory.getLogger(Mirror.class);

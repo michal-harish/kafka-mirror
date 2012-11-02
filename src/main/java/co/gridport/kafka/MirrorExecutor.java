@@ -29,12 +29,12 @@ import org.slf4j.LoggerFactory;
  * Partitioned Kafka Mirror 
  * 
  * This class represents an executor for mirroring between source and destination
- * kafka clusters with a single partitioning strategy provided via MirrorEncoder
+ * kafka clusters with a single partitioning strategy provided via MirrorResolver
  * implementation. Within the executor instance, there are n consumer streams 
- * all using a single, partitioned, producer and all the source topics are 
+ * all using a single, partitioned, producer.
  * 
- * A mirror application can instantiate multiple Mirror Exectors
- * if it mirrors multiple source clusters onto a single destination cluster.
+ * A mirror application can instantiate multiple Mirror Executors or simply
+ * use the Mirror wrapper which instantiates executors from a Properties object.  
  * 
  * @author Michal Harish
  *

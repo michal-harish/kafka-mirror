@@ -45,6 +45,15 @@
 
     Resolver and Producer configuration are common to all consumers, but there can be 
     multiple consuemrs consuming from different clusters or sets of topics.
-
-
+    
+== TODOs ==
+    * take net.imagini implementation out and use git on top of svn to share the common code  
+    * src/test/java/TestMirrorPartitioner
+    * src/test/java/TestMirrorResolver
+    * src/test/java/TestMirrorDestination
+    * decide on unit-testing the MirrorExecutor
+        ** brute force would be to launch two instances of kafka within the test
+        ** elegant way would be to split executor into two classes with an interface in between, 
+           one for the kafka context and another for testable logic, then mock the context with
+           serving complete messageAndMetadata objects.
 

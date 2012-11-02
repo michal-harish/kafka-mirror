@@ -7,7 +7,7 @@ package co.gridport.kafka;
  * to provide potentially n output topic with their own
  * partitioning strategy for a single input message.
  * 
- * @author michal.harish
+ * @author Michal Harish
  *
  */
 public class MirrorDestination {

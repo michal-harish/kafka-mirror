@@ -5,7 +5,6 @@ import java.util.List;
 import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
 
-
 /**
  * Mirror Resolver interface is used for deciding where an
  * incoming message should go in the destination cluster
