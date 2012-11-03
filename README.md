@@ -49,45 +49,47 @@ mirror.properties
 -----------------
 
 The following snippet is the content from [src/test/resources/mirror.properties].
-It is used in the embedded test [src/test/java/TestMirror.java]
-* The resolver section contains configuration destination resolver used by the single internal producer.
-* Producer section appears only once and contains the producer configuration for the destination cluster
-* There are multiple consumer(s) each for mirroring a particular remote cluster and its topics.
+It is used in the embedded test [src/test/java/TestMirror.java] 
 
-	resolver.class = TestMirror$ExampleEncoder
+    resolver.class = TestMirror$ExampleEncoder
+    
+    producer.zk.connect = localhost:2181
+    producer.zk.connectiontimeout.ms = 10000
+    producer.producer.type = async
+    producer.queue.time = 100
+    producer.queue.size = 50
+    producer.compression.codec = 1
 
-	producer.zk.connect = localhost:2181
-	producer.zk.connectiontimeout.ms = 10000
-	producer.producer.type = async
-	producer.queue.time = 100
-	producer.queue.size = 50
-	producer.compression.codec = 1
-
-	consumer.1.topics.whitelist = topic1,topic2
-	consumer.1.zk.connect = aos3.gridport.co:2181
-	consumer.1.groupid = example-mirror
-	consumer.1.zk.connectiontimeout.ms = 10000
-	consumer.1.backoff.increment.ms = 250
+    consumer.1.topics.whitelist = topic1,topic2
+    consumer.1.zk.connect = aos3.gridport.co:2181
+    consumer.1.groupid = example-mirror
+    consumer.1.zk.connectiontimeout.ms = 10000
+    consumer.1.backoff.increment.ms = 250
 		
-	consumer.2.zk.connect = aos1.gridport.co:2181
-	consumer.2.groupid = example-mirror
-	consumer.2.topics.whitelist = topic1,topic2   
-	consumer.2.zk.connectiontimeout.ms = 3000
-	consumer.2.backoff.increment.ms = 250
+    consumer.2.zk.connect = aos1.gridport.co:2181
+    consumer.2.groupid = example-mirror
+    consumer.2.topics.whitelist = topic1,topic2   
+    consumer.2.zk.connectiontimeout.ms = 3000
+    consumer.2.backoff.increment.ms = 250
+
+
+ * The resolver section contains configuration destination resolver used by the single internal producer.
+ * Producer section appears only once and contains the producer configuration for the destination cluster
+ * There are multiple consumer(s) each for mirroring a particular remote cluster and its topics.
 
 
     
 Backlog
 =======
 
-    * take net.imagini implementation out and use git on top of svn to share the common code  
-    * src/test/java/TestMirrorPartitioner
-    * src/test/java/TestMirrorResolver
-    * src/test/java/TestMirrorDestination
-    * decide on unit-testing the MirrorExecutor
-        ** brute force would be to launch two instances of kafka within the test
-        ** elegant way would be to split executor into two classes with an interface in between, 
-           one for the kafka context and another for testable logic, then mock the context with
-           serving complete messageAndMetadata objects.
+ * take net.imagini implementation out and use git on top of svn to share the common code  
+ * src/test/java/TestMirrorPartitioner
+ * src/test/java/TestMirrorResolver
+ * src/test/java/TestMirrorDestination
+ * decide on unit-testing the MirrorExecutor
+ ** brute force would be to launch two instances of kafka within the test
+ ** elegant way would be to split executor into two classes with an interface in between, 
+    one for the kafka context and another for testable logic, then mock the context with
+    serving complete messageAndMetadata objects.
 
 
