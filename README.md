@@ -25,9 +25,9 @@ so that the built-in partitioner can transparently use a simple hash % num_parti
 Running the mirror out of the box
 ----------------------------------
 
-git clone git://github.com/michal-harish/kafka-mirror.git
-mvn package assembly:single    
-java -cp src/test/resources/:target/kafka-mirror-0.7.2.jar co.gridport.kafka.Mirror [/etc/kafka/mirror.properties]
+    git clone git://github.com/michal-harish/kafka-mirror.git
+    mvn package assembly:single    
+    java -cp src/test/resources/:target/kafka-mirror-0.7.2.jar co.gridport.kafka.Mirror [/etc/kafka/mirror.properties]
 
 This will require [/etc/kafka/mirror.properties] to exist and properties as per example.
 The src/test/resources/: is added to the classpath to provide access to log4j.properties
@@ -36,14 +36,14 @@ but may be replaced with custom ones.
 Wrapping the Mirror in a java program
 -------------------------------------
 
-Properties properties = MyProgram.class.getResourceAsStream("mirror.properties");
-Mirror myMirror = new Mirror(properties);
+    Properties properties = MyProgram.class.getResourceAsStream("mirror.properties");
+    Mirror myMirror = new Mirror(properties);
 
-//EITHER - this will block and log stats every 10 seconds
-myMirror.run(10); 
+    //EITHER - this will block and log stats every 10 seconds
+    myMirror.run(10); 
 
-//OR -this will only start mirror executors in the background and myMirror.shutdown();
-myMirror.start(); 
+    //OR -this will only start mirror executors in the background and myMirror.shutdown();
+    myMirror.start(); 
 
 mirror.properties
 -----------------
@@ -82,7 +82,7 @@ It is used in the embedded test [src/test/java/TestMirror.java]
 Backlog
 =======
 
- * take net.imagini implementation out and use git on top of svn to share the common code  
+ * take net.imagini implementation out and two git remotes to share patches
  * src/test/java/TestMirrorPartitioner
  * src/test/java/TestMirrorResolver
  * src/test/java/TestMirrorDestination
