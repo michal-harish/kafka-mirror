@@ -1,4 +1,8 @@
-== About the MirrorResolver interface ==
+Kafka-Paritioned-Mirror
+=======================
+
+About the MirrorResolver interface
+----------------------------------
 
     MirrorResolver is the heart of the mirror decisions about where the incoming message
     should go and with what partition key. 
@@ -14,7 +18,8 @@
     The hash is in fact expected to be an integer value rather than any kind of hash 
     so that the built-in partitioner can transparently use a simple hash % num_partitions. 
 
-== Running the mirror out of the box ==
+Running the mirror out of the box
+----------------------------------
 
     svn co http://xp-dev.com/svn/gridport.co/artifacts/kafka-mirror
     mvn package assembly:single    
@@ -24,7 +29,8 @@
     The src/test/resources/: is added to the classpath to provide access to log4j.properties
     but may be replaced with custom ones. 
 
-== Wrapping the Mirror in a java program ==
+Wrapping the Mirror in a java program
+-------------------------------------
 
     Properties properties = MyProgram.class.getResourceAsStream("mirror.properties");
     Mirror myMirror = new Mirror(properties);
@@ -35,7 +41,8 @@
     //OR -this will only start mirror executors in the background and myMirror.shutdown();
     myMirror.start(); 
 
-== mirror.properties ==
+mirror.properties
+-----------------
 
     See src/test/resources/mirror.properties and run /src/test/java/TestMirror.java for example.
 
@@ -46,7 +53,9 @@
     Resolver and Producer configuration are common to all consumers, but there can be 
     multiple consuemrs consuming from different clusters or sets of topics.
     
-== TODOs ==
+Backlog
+=======
+
     * take net.imagini implementation out and use git on top of svn to share the common code  
     * src/test/java/TestMirrorPartitioner
     * src/test/java/TestMirrorResolver
@@ -56,4 +65,5 @@
         ** elegant way would be to split executor into two classes with an interface in between, 
            one for the kafka context and another for testable logic, then mock the context with
            serving complete messageAndMetadata objects.
+
 
