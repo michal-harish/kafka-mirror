@@ -1,6 +1,10 @@
 Kafka-Paritioned-Mirror
 =======================
 
+This Kafka Mirror implementation gives control over output(producer) partitioner which is not supported by the mirroring functionality bundled into the kafka broker 0.7.x. Mirroring single source message onto multiple destination topics is also supported. See extract from the readme file below for more details about the message-to-destination mapping implementation.
+
+It is written in Java and can be run out of the box, provided the resolver.class is found on the classpath, or may be embedded in a Java/Scala program that contains the resolver.class implementation via maven dependency.
+
 About the MirrorResolver interface
 ----------------------------------
 
