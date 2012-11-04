@@ -61,6 +61,9 @@ public class MirrorExecutor {
     protected long destCount;
     protected long destCountSnapshot;
     protected long snapshotTimestamp;
+    
+    protected long totalIn = 0;
+    protected long totalOut = 0;
 
     protected static int maxPartitions = 0;
 
@@ -171,6 +174,7 @@ public class MirrorExecutor {
                         log.debug("GOT MESSAGE IN TOPIC " + metaMsg.topic());
                         List<MirrorDestination> destList = resolver.resolve(metaMsg);
                         srcCount++;
+                        totalIn++;
 
                         ArrayList<Message> messageList = new ArrayList<Message>();
                         messageList.add(metaMsg.message());
@@ -180,6 +184,7 @@ public class MirrorExecutor {
                         for(MirrorDestination dest: destList)
                         {
                             destCount++;
+                            totalOut++;
                             ProducerData<Integer,Message> dataForSingleTopic 
                                 = new ProducerData<Integer,Message>(
                                     dest.getTopic(),
@@ -233,9 +238,11 @@ public class MirrorExecutor {
         long numPartitions = maxPartitions;
         maxPartitions = 0;
 
-        return "src/sec=" + srcCountPerSecond+
+        return
+            "in/out=" + totalIn + "/"+ totalOut +
+            ", src/sec=" + srcCountPerSecond+
             ", dest/sec=" + destCountPerSecond+
-            ", high.partition=" + numPartitions +
+            ", highest partition=" + numPartitions +
             " " + consumerProps.get("zk.connect");
     }
 
