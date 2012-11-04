@@ -82,7 +82,6 @@ It is used in the embedded test [src/test/java/TestMirror.java]
 Backlog
 =======
 
- * take net.imagini implementation out and two git remotes to share patches
  * src/test/java/TestMirrorPartitioner
  * src/test/java/TestMirrorResolver
  * src/test/java/TestMirrorDestination
