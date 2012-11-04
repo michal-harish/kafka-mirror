@@ -195,7 +195,7 @@ public class MirrorExecutor {
                             dataForMultipleTopics.add(dataForSingleTopic);
                             if (dest.getKey() == null)
                             {
-                                log.debug("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING");
+                                log.info("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING");
                             }
                             else
                             {
