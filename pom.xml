@@ -5,21 +5,11 @@
   <version>0.7.2-SNAPSHOT</version>
   <name>Kafka Partitioned Mirror</name>
   <description>Configurable Kafka Mirror with destination topic partitioner support</description>
-  <distributionManagement>
-    <snapshotRepository>
-        <id>gridport.co-snapshots</id>
-        <url>http://aos3.gridport.co:8081/nexus/content/repositories/snapshots</url>        
-    </snapshotRepository>
-    <repository>
-        <id>gridport.co-releases</id>
-        <url>http://aos3.gridport.co:8081/nexus/content/repositories/releases</url>        
-    </repository>
-  </distributionManagement>
 
   <developers>
     <developer>
-        <name>Michal Harish</name>
-        <email>michal.harish@gmail.com</email>
+        <name>Michal Haris</name>
+        <email>michal.haris@visualdna.com</email>
     </developer>
   </developers>
 
@@ -74,20 +64,24 @@
     </plugins>
   </build>
 
-  <repositories>
-    <repository>
-        <id>gridport.co-snapshots</id>
-        <name>GridPort Snapshots Repository</name>
-        <url>http://aos3.gridport.co:8081/nexus/content/repositories/snapshots</url>
-        <snapshots>
-            <updatePolicy>always</updatePolicy>
-        </snapshots>
-    </repository>
-    <repository>
-        <id>gridport.co-releases</id>
-        <name>GridPort Releases Repository</name>
-        <url>http://aos3.gridport.co:8081/nexus/content/repositories/releases</url>
-    </repository>
-  </repositories>
+	<repositories>
+		<repository>
+			<id>visualdna-snapshots</id>
+			<name>VisualDNA Snapshots</name>
+			<url>
+			 http://maven.visualdna.com/nexus/content/repositories/snapshots
+			</url>
+			<snapshots>
+			<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</repository>
+		<repository>
+			<id>visualdna-releases</id>
+			<name>VisualDNA Releases</name>
+			<url>
+			     http://maven.visualdna.com/nexus/content/repositories/releases
+			</url>
+	   </repository>
+    </repositories>
 
 </project>
