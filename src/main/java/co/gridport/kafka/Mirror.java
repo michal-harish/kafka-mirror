@@ -127,14 +127,15 @@ public class Mirror {
     
     /**
      * Start mirroring, e.g. start all executor threads
+     * @throws Exception When initialization of one of the executors fails
      */
-    public void start()
+    public void start() throws Exception
     {
         //start all executors
         int startedExecutors = 0;
         for(MirrorExecutor executor: executors){
             if(!executor.start()){
-                log.warn("Failed to start mirror executor");                
+                throw new Exception("Failed to start mirror executor");
             } else {
                 startedExecutors++;
             }
@@ -158,11 +159,17 @@ public class Mirror {
     /**
      * 
      * @param statFrequency Frequency in seconds at which stats will be logged
+     * @throws Exception When start() functions throws 
      */
     public void run(long statFrequency)
     {
-        start();
-        
+        try {
+            start();
+        } catch (Exception e1) {
+            log.error("Failed to start the mirror", e1);
+            return;
+        }
+
         //observe mirror stats while running
         Thread main = Thread.currentThread();
         try {
