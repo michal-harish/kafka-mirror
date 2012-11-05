@@ -18,8 +18,8 @@ public class CentralMirror {
 
     static private String defaultPropertiesLocation = "/etc/vdna/kafka/central-mirror.properties";
 
-    static public double latestObservedTimestamp = 0;
-    static public double earliestObservedTimestamp = Double.MAX_VALUE;
+    //static public double latestObservedTimestamp = 0;
+    //static public double earliestObservedTimestamp = Double.MAX_VALUE;
 
     public static void main(String[] args) throws Exception
     {
