@@ -1,13 +1,13 @@
 package net.imagini.kafka;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
@@ -42,17 +42,7 @@ public class DestinationResolver  implements MirrorResolver
     static private Logger log = LoggerFactory.getLogger(DestinationResolver.class);
     static private JsonFactory jsonFactory = new JsonFactory();
     final private List<MirrorDestination> emptyDestinationList = new ArrayList<MirrorDestination>();
-    private MessageDigest sha256;
-    //private MessageDigest md5;
 
-    public DestinationResolver()
-    {
-        try {
-            sha256 = MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            log.error("Could not initialize resolver", e);
-        }
-    }
     /**
      * Entry point method which decides how to resolve the message depending
      * on the source topic.
@@ -130,27 +120,30 @@ public class DestinationResolver  implements MirrorResolver
                 return result;
             }
 
+            //figure out User UUID and its hash for partitioning
             String uuid = fields.get("userUid");
-            if (uuid == null)
+            String widget_mc = fields.get("vdna_widget_mc");
+            if (uuid == null || uuid.equals("null") || uuid.equals("OPT_OUT"))
             {
-                uuid = fields.get("vdna_widget_mc");
-                //TODO validate the if this comes from the deterministic generator or a true uuid
+                uuid = null;
+                //TODO JIRA/EDA-19 what is userUid=OPT_OUT
+                if (!widget_mc.equals("null") && !widget_mc.equals("OPT_OUT"))
+                {
+                    //TODO JIRA/EDA-19 validate the if this comes from the deterministic generator or a true uuid
+                    uuid = widget_mc;
+                }
             }
-            String uuidHashString;
-            /*byte[] bytesOfMessage;
-            try {
-                bytesOfMessage = uuid.getBytes("UTF-8");
-            } catch (UnsupportedEncodingException e1) {
-                log.error("UTF-8 problem", e1);
-                return result;
+            Integer uuidHash = null; 
+            if (uuid != null && !uuid.equals("null"))
+            {
+                try {
+                    uuidHash = (uuid == null ? null : Math.abs(UUID.fromString(uuid).hashCode()));
+                } catch (IllegalArgumentException invalidUuid)
+                {
+                    uuidHash = null;
+                }
             }
-            byte[] thedigest = sha256.digest(bytesOfMessage);
-            String uuidHashString = new String(thedigest);
-            uuidHashString += uuid;
-            */
-            uuidHashString = uuid;
-            Integer uuidHash = (uuid == null ? null : Math.abs(uuidHashString.hashCode()));
-    
+
             /*
              * Publish into one of the topics for each event type - e.g. primary topic.
              * Every event has to end up at least in one of the following.
