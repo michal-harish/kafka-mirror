@@ -2,8 +2,6 @@ package net.imagini.kafka;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,9 +48,6 @@ public class DestinationResolver  implements MirrorResolver
     public List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg)
     {
         if (metaMsg.topic().equals("tracking_events"))
-        {
-            return resolveTrackingEvents(metaMsg);
-        } else if (metaMsg.topic().equals("sim_tracking_events"))
         {
             return resolveTrackingEvents(metaMsg);
         } else {
