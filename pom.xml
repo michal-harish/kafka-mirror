@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>co.gridport.kafka</groupId>
   <artifactId>kafka-mirror</artifactId>
-  <version>0.7.2-SNAPSHOT</version>
+  <version>1.0.0</version>
   <name>Kafka Partitioned Mirror</name>
   <description>Configurable Kafka Mirror with destination topic partitioner support</description>
 
