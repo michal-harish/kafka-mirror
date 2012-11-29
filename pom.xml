@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>co.gridport.kafka</groupId>
   <artifactId>kafka-mirror</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0-SNAPSHOT</version>
   <name>Kafka Partitioned Mirror</name>
   <description>Configurable Kafka Mirror with destination topic partitioner support</description>
 
@@ -49,8 +49,9 @@
         <plugin>
           <artifactId>maven-assembly-plugin</artifactId>
           <configuration>
-              <finalName>kafka-mirror-0.7.2</finalName>
+              <finalName>kafka-mirror</finalName>
               <appendAssemblyId>false</appendAssemblyId>
+              <classifier>jar</classifier>
               <archive>
                   <manifest>
                       <mainClass>co.gridport.kafka.Mirror</mainClass>
@@ -61,23 +62,37 @@
             </descriptorRefs>
           </configuration>
        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-deploy-plugin</artifactId>
+            <version>2.6</version>
+            <goals>
+                <goal>deploy-file</goal>
+            </goals>
+            <configuration>
+                <repositoryId>visualdna-releases</repositoryId>
+                <packaging>jar</packaging>
+                <generatePom>true</generatePom>
+<url>https://maven.visualdna.com/nexus/content/repositories/releases/</url>
+                <groupId>net.imagini.kafka</groupId>
+                <artifactId>kafka-central-mirror</artifactId>
+                <version>${project.version}</version>
+                <file>target/kafka-mirror.jar</file>
+            </configuration>
+        </plugin>       
     </plugins>
   </build>
 
-	<repositories>
-		<repository>
-			<id>visualdna-snapshots</id>
-			<name>VisualDNA Snapshots</name>
-			<url>http://maven.visualdna.com/nexus/content/repositories/snapshots</url>
-			<snapshots>
-			<updatePolicy>always</updatePolicy>
-			</snapshots>
-		</repository>
-		<repository>
-			<id>visualdna-releases</id>
-			<name>VisualDNA Releases</name>
-			<url>http://maven.visualdna.com/nexus/content/repositories/releases</url>
-	   </repository>
-    </repositories>
-
+  <repositories>
+    <repository>
+      <id>visualdna-releases</id>            
+      <url>https://maven.visualdna.com/nexus/content/repositories/releases</url>
+      <layout>default</layout>
+    </repository> 
+    <repository>
+      <id>visualdna-snaphots</id>
+      <url>https://maven.visualdna.com/nexus/content/repositories/snapshots</url>
+      <layout>default</layout>
+    </repository> 
+  </repositories>
 </project>
