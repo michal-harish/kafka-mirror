@@ -61,10 +61,11 @@ public class DestinationResolver  implements MirrorResolver
             fields.put("objId", null);
             fields.put("vdna_widget_mc", null);
 
+            String json = null;
             try {
-                parseMinimumJsonMessage(metaMsg.message(), fields);
+                json = parseMinimumJsonMessage(metaMsg.message(), fields);
             } catch (IOException e) {
-                log.error("Couldn'r read JSON ", e);
+                log.error("Couldn't read JSON ", e);
                 return result;
             }
 
@@ -99,7 +100,7 @@ public class DestinationResolver  implements MirrorResolver
                 String action = fields.get("action");
                 if (action == null)
                 {
-                    log.warn("Invalid esVDNAAppUserActionEvent with null action: " + metaMsg.message().payload().toString());
+                    log.warn("Invalid esVDNAAppUserActionEvent with null action: " + json);
                     return result;
                 }
                 /*
@@ -181,7 +182,7 @@ public class DestinationResolver  implements MirrorResolver
              */
             if (result.size() == 0)
             {
-                log.warn("No primary topic for event type `" + eventType + "`: " + metaMsg.message().payload().toString());
+                log.warn("No primary topic for event type `" + eventType + "`: " + json);
             }
 
             //TODO Collect metrics JIRA-35 Implement MBean
@@ -208,17 +209,19 @@ public class DestinationResolver  implements MirrorResolver
         return result;
     }
 
-    private void parseMinimumJsonMessage(Message message, Map<String,String> fields) throws IOException
+    private String parseMinimumJsonMessage(Message message, Map<String,String> fields) throws IOException
     {
         ByteBuffer buffer = message.payload();
         byte [] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
-        //read only the necessary fields (streaming jackson)
+        String json = new String(bytes);
+
+        //parse only the necessary fields (streaming jackson)
         JsonParser jp;
         try {
             jp = jsonFactory.createJsonParser(bytes);
         } catch (JsonParseException e) {
-            log.warn("Message not in JSON format: " + new String(bytes)) ;
+            log.warn("Message not in JSON format: " + new String(bytes));
             throw new IOException("Invalid message json, see logs for more details", e);
         }
         try {
@@ -237,6 +240,7 @@ public class DestinationResolver  implements MirrorResolver
                     }
                 }
             }
+            return json;
         } finally {
             jp.close();
         }
