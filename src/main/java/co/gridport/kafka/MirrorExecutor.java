@@ -1,5 +1,6 @@
 package co.gridport.kafka;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -195,7 +196,11 @@ public class MirrorExecutor {
                             dataForMultipleTopics.add(dataForSingleTopic);
                             if (dest.getKey() == null)
                             {
-                                log.info("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING");
+                                ByteBuffer buffer = metaMsg.message().payload();
+                                byte [] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes);
+                                String payload = new String(bytes);
+                                log.info("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING " + payload);
                             }
                             else
                             {

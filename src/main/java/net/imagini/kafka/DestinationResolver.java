@@ -55,11 +55,13 @@ public class DestinationResolver  implements MirrorResolver
             fields.put("date", null);
             fields.put("event_type", null);
             fields.put("userUid", null);
+            fields.put("sessionId", null);
 
             fields.put("action", null);
             fields.put("objType", null);
             fields.put("objId", null);
             fields.put("vdna_widget_mc", null);
+            fields.put("partner_user_id", null);
 
             String json = null;
             try {
@@ -72,25 +74,30 @@ public class DestinationResolver  implements MirrorResolver
             //figure out User UUID and its hash for partitioning
             String uuid = fields.get("userUid");
             String widget_mc = fields.get("vdna_widget_mc");
-            if (uuid == null || uuid.equals("null") || uuid.equals("OPT_OUT"))
+            String partner_user_id = fields.get("partner_user_id");
+            String sessionId = fields.get("sessionId");
+            if (uuid == null || uuid.equals("null") || uuid.equals("OPT_OUT") || uuid.equals("0"))
             {
                 uuid = null;
                 //TODO JIRA/EDA-19 what is userUid=OPT_OUT
-                if (!widget_mc.equals("null") && !widget_mc.equals("OPT_OUT"))
+                if (widget_mc != null && !widget_mc.equals("null") && !widget_mc.equals("OPT_OUT"))
                 {
                     //TODO JIRA/EDA-19 validate the if this comes from the deterministic generator or a true uuid
                     uuid = widget_mc;
                 }
             }
-            Integer uuidHash = null; 
-            if (uuid != null && !uuid.equals("null"))
+            Integer uidHash = null; 
+            if (uuid != null && !uuid.equals("null") && !uuid.equals("0"))
             {
                 try {
-                    uuidHash = (uuid == null ? null : Math.abs(UUID.fromString(uuid).hashCode()));
-                } catch (IllegalArgumentException invalidUuid)
-                {
-                    uuidHash = null;
+                    uidHash = (uuid == null ? null : Math.abs(UUID.fromString(uuid).hashCode()));
+                } catch (IllegalArgumentException invalidUuid) {
+                    uidHash = null;
                 }
+            } else if (partner_user_id != null) {
+                uidHash = Math.abs(partner_user_id.hashCode());
+            } else if (sessionId != null) {
+                uidHash = Math.abs(sessionId.hashCode());
             }
 
             //now check event type and resolve accordingly
@@ -111,21 +118,21 @@ public class DestinationResolver  implements MirrorResolver
                 {
                     result.add(new MirrorDestination(
                         "datasync", 
-                        uuidHash
+                        uidHash
                     ));
                 }
                 else if (action.equals("CONVERSION") && fields.get("objId").equals("sync"))
                 {
                     result.add(new MirrorDestination(
                         "datasync", 
-                        uuidHash
+                        uidHash
                     ));
                 }
                 else if (action.equals("MINTED_USER_KEY"))
                 {
                     result.add(new MirrorDestination(
                         "datasync", 
-                        uuidHash
+                        uidHash
                     ));
                 }
                 else if (action.equals("CONVERSION") && fields.get("objType").equals("CONVERSION"))
@@ -137,12 +144,12 @@ public class DestinationResolver  implements MirrorResolver
                     ) {
                         result.add(new MirrorDestination(
                             "useractivity",
-                            uuidHash
+                            uidHash
                         ));
                     } else {
                         result.add(new MirrorDestination(
                             "conversions", 
-                            uuidHash
+                            uidHash
                         ));
                     }
                 }
@@ -150,30 +157,30 @@ public class DestinationResolver  implements MirrorResolver
                 {
                     result.add(new MirrorDestination(
                         "adviews", 
-                        uuidHash
+                        uidHash
                     ));
                 }
                 else if (action.equals("CLICK") && fields.get("objType").equals("AD"))
                 {
                     result.add(new MirrorDestination(
                         "adclicks", 
-                        uuidHash
+                        uidHash
                     ));
                 }
                 else if (action.equals("PAGE_VIEW"))
                 {
                     result.add(new MirrorDestination(
                         "pageviews", 
-                        uuidHash
+                        uidHash
                     ));
                 }
             } else if (eventType.equals("VDNAQuizUserAction")) { // quiz engine message
                 result.add(new MirrorDestination(
                     "useractivity", 
-                    uuidHash
+                    uidHash
                 ));
             } else {
-                log.warn("Unknown event_type "  + eventType);
+                log.warn("Unknown event_type "  + eventType+ " " + json);
                 return result;
             }
 
