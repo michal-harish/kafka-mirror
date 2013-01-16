@@ -43,8 +43,8 @@ import com.yammer.metrics.core.MetricName;
 public class DestinationResolver  implements MirrorResolver
 {
 
-    private final Meter input = Metrics.newMeter(new MetricName(CentralMirror.env,"kafka.CentralMirror","input"), "message", TimeUnit.SECONDS);
-    private final Meter output = Metrics.newMeter(new MetricName(CentralMirror.env,"kafka.CentralMirror","output"), "message", TimeUnit.SECONDS);
+    private final Meter input = Metrics.newMeter(new MetricName(CentralMirror.env, CentralMirror.type,"input"), "messages", TimeUnit.SECONDS);
+    private final Meter output = Metrics.newMeter(new MetricName(CentralMirror.env,CentralMirror.type,"output"), "messages", TimeUnit.SECONDS);
         
     static private Logger log = LoggerFactory.getLogger(DestinationResolver.class);
     static private JsonFactory jsonFactory = new JsonFactory();
@@ -214,7 +214,7 @@ public class DestinationResolver  implements MirrorResolver
 
         // Absolute granularity metrics 
         try {
-            Double timestamp = Double.valueOf(fields.get("timestamp")) * 1000;
+            //Double timestamp = Double.valueOf(fields.get("timestamp")) * 1000;
             /* TODO JIRA-35 Implement MBean
             if (timestamp > CentralMirror.latestObservedTimestamp)
             {
