@@ -6,15 +6,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import co.gridport.kafka.Mirror;
 
+import com.yammer.metrics.reporting.GraphiteReporter;
+
 
 public class CentralMirror {
     static private Logger log = LoggerFactory.getLogger(CentralMirror.class);
+    
+    static protected String env = "dev";
 
     static private String defaultPropertiesLocation = "/etc/vdna/kafka/central-mirror.properties";
 
@@ -51,8 +56,18 @@ public class CentralMirror {
             log.error("Couuld not read properties files");
         }
 
-        Mirror mirror = new Mirror(properties);
+        if (properties.containsKey("environment")) {
+            env = properties.getProperty("environment");
+        }
 
+        if (properties.containsKey("graphite.host")) {
+            String graphiteHost = properties.getProperty("graphite.host");
+            int graphitePort = properties.containsKey("graphite.port") ? Integer.valueOf(properties.getProperty("graphite.port")) : 2003;
+            log.info("Using graphite connection: " + graphiteHost + ":" + graphitePort);
+            GraphiteReporter.enable(1, TimeUnit.MINUTES, graphiteHost, graphitePort);
+        }
+
+        Mirror mirror = new Mirror(properties);
         mirror.run(10);
     }
 

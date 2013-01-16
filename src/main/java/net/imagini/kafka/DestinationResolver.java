@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
@@ -20,6 +21,10 @@ import org.slf4j.LoggerFactory;
 
 import co.gridport.kafka.MirrorDestination;
 import co.gridport.kafka.MirrorResolver;
+
+import com.yammer.metrics.Metrics;
+import com.yammer.metrics.core.Meter;
+import com.yammer.metrics.core.MetricName;
 
 
 /**
@@ -38,6 +43,9 @@ import co.gridport.kafka.MirrorResolver;
 public class DestinationResolver  implements MirrorResolver
 {
 
+    private final Meter input = Metrics.newMeter(new MetricName(CentralMirror.env,"kafka.CentralMirror","input"), "message", TimeUnit.SECONDS);
+    private final Meter output = Metrics.newMeter(new MetricName(CentralMirror.env,"kafka.CentralMirror","output"), "message", TimeUnit.SECONDS);
+        
     static private Logger log = LoggerFactory.getLogger(DestinationResolver.class);
     static private JsonFactory jsonFactory = new JsonFactory();
 
@@ -48,34 +56,36 @@ public class DestinationResolver  implements MirrorResolver
     public List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg)
     {
         ArrayList<MirrorDestination> result = new ArrayList<MirrorDestination>();
+
+        //prepare fields we're interetsed in for parititoning purpose
+        Map<String,String> fields = new HashMap<String,String>();
+        fields.put("timestamp", null);
+        fields.put("date", null);
+        fields.put("event_type", null);
+        fields.put("userUid", null);
+        fields.put("sessionId", null);
+
+        fields.put("action", null);
+        fields.put("objType", null);
+        fields.put("objId", null);
+        fields.put("vdna_widget_mc", null);
+        fields.put("partner_user_id", null);
+
+        String json = null;
         try {
-            //prepare fields we're interetsed in for parititoning purpose
-            Map<String,String> fields = new HashMap<String,String>();
-            fields.put("timestamp", null);
-            fields.put("date", null);
-            fields.put("event_type", null);
-            fields.put("userUid", null);
-            fields.put("sessionId", null);
+            json = parseMinimumJsonMessage(metaMsg.message(), fields);
+        } catch (Exception e) {
+            log.error("Couldn't read JSON ", e);
+            return result;
+        }
 
-            fields.put("action", null);
-            fields.put("objType", null);
-            fields.put("objId", null);
-            fields.put("vdna_widget_mc", null);
-            fields.put("partner_user_id", null);
-
-            String json = null;
-            try {
-                json = parseMinimumJsonMessage(metaMsg.message(), fields);
-            } catch (IOException e) {
-                log.error("Couldn't read JSON ", e);
-                return result;
-            }
-
+        String uuid = fields.get("userUid");
+        String widget_mc = fields.get("vdna_widget_mc");
+        String partner_user_id = fields.get("partner_user_id");
+        String sessionId = fields.get("sessionId");
+        Integer uidHash = null; 
+        try {
             //figure out User UUID and its hash for partitioning
-            String uuid = fields.get("userUid");
-            String widget_mc = fields.get("vdna_widget_mc");
-            String partner_user_id = fields.get("partner_user_id");
-            String sessionId = fields.get("sessionId");
             if (uuid == null || uuid.equals("null") || uuid.equals("OPT_OUT") || uuid.equals("0"))
             {
                 uuid = null;
@@ -86,7 +96,6 @@ public class DestinationResolver  implements MirrorResolver
                     uuid = widget_mc;
                 }
             }
-            Integer uidHash = null; 
             if (uuid != null && !uuid.equals("null") && !uuid.equals("0"))
             {
                 try {
@@ -99,7 +108,11 @@ public class DestinationResolver  implements MirrorResolver
             } else if (sessionId != null) {
                 uidHash = Math.abs(sessionId.hashCode());
             }
+        } catch (Exception e3) {
+            log.error("Error while trying to determine uuidHash of the event ", e3);
+        }
 
+        try {
             //now check event type and resolve accordingly
             String eventType = fields.get("event_type");
             if (eventType.equals("esVDNAAppUserActionEvent")) // event tracker message
@@ -184,6 +197,10 @@ public class DestinationResolver  implements MirrorResolver
                 return result;
             }
 
+            //Metrics
+            input.mark();
+            output.mark(result.size());
+
             /*
              * If the event didn't end up in any primary topic, it's a problem.
              */
@@ -191,26 +208,26 @@ public class DestinationResolver  implements MirrorResolver
             {
                 log.warn("No primary topic for event type `" + eventType + "`: " + json);
             }
+        } catch (Exception e) {
+            log.error("DesinationResolver encountered serious error while mapping the incoming message to output ", e);
+        }
 
-            //TODO Collect metrics JIRA-35 Implement MBean
-            /*
-            try {
-                Double timestamp = Double.valueOf(fields.get("timestamp")) * 1000;
-                if (timestamp > CentralMirror.latestObservedTimestamp)
-                {
-                    CentralMirror.latestObservedTimestamp = timestamp;
-                }
-                if (timestamp < CentralMirror.earliestObservedTimestamp)
-                {
-                    CentralMirror.earliestObservedTimestamp = timestamp;
-                }
-            } catch (Exception e)
+        // Absolute granularity metrics 
+        try {
+            Double timestamp = Double.valueOf(fields.get("timestamp")) * 1000;
+            /* TODO JIRA-35 Implement MBean
+            if (timestamp > CentralMirror.latestObservedTimestamp)
             {
-                log.error("Could not extract timestamp from the json event", e);
+                CentralMirror.latestObservedTimestamp = timestamp;
+            }
+            if (timestamp < CentralMirror.earliestObservedTimestamp)
+            {
+                CentralMirror.earliestObservedTimestamp = timestamp;
             }
             */
-        } catch (Exception e3) {
-            log.error("DesinationResolver encountered serious error ", e3);
+        } catch (Exception e)
+        {
+            log.error("Could not extract timestamp from the json event", e);
         }
 
         return result;
