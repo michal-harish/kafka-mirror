@@ -43,8 +43,8 @@ import com.yammer.metrics.core.MetricName;
 public class DestinationResolver  implements MirrorResolver
 {
 
-    private final Meter input = Metrics.newMeter(new MetricName(CentralMirror.env, CentralMirror.type,"input"), "messages", TimeUnit.SECONDS);
-    private final Meter output = Metrics.newMeter(new MetricName(CentralMirror.env,CentralMirror.type,"output"), "messages", TimeUnit.SECONDS);
+    private final Meter input = Metrics.newMeter(new MetricName(CentralMirror.group, CentralMirror.type,"input"), "messages", TimeUnit.SECONDS);
+    private final Meter output = Metrics.newMeter(new MetricName(CentralMirror.group,CentralMirror.type,"output"), "messages", TimeUnit.SECONDS);
         
     static private Logger log = LoggerFactory.getLogger(DestinationResolver.class);
     static private JsonFactory jsonFactory = new JsonFactory();

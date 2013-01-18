@@ -19,8 +19,8 @@ import com.yammer.metrics.reporting.GraphiteReporter;
 public class CentralMirror {
     static private Logger log = LoggerFactory.getLogger(CentralMirror.class);
     
-    static protected String env = "dev";
-    static protected String type = "kafka.CentralMirror";
+    static protected String group = "dev.kafka";
+    static protected String type = "CentralMirror";
 
     static private String defaultPropertiesLocation = "/etc/vdna/kafka/central-mirror.properties";
 
@@ -58,14 +58,14 @@ public class CentralMirror {
         }
 
         if (properties.containsKey("environment")) {
-            env = properties.getProperty("environment");
+            group = properties.getProperty("environment") + ".kafka";
         }
 
         if (properties.containsKey("instance.id")) {
             type += "." + properties.getProperty("instance.id");
         }
 
-        log.info("Using metrics type: " + env + "." + type);
+        log.info("Using metrics name: " + group + "." + type);
 
         if (properties.containsKey("graphite.host")) {
             String graphiteHost = properties.getProperty("graphite.host");
