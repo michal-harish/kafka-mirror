@@ -187,7 +187,7 @@ public class DestinationResolver  implements MirrorResolver
                         uidHash
                     ));
                 }
-            } else if (eventType.equals("VDNAQuizUserAction")) { // quiz engine message
+            } else if (eventType.equals("VDNAQuizUserAnswer")) { // quiz engine message
                 result.add(new MirrorDestination(
                     "useractivity", 
                     uidHash
