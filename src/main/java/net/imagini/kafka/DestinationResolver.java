@@ -154,6 +154,8 @@ public class DestinationResolver  implements MirrorResolver
                     if (conversionId.equals("loaded_quiz")
                         || conversionId.equals("started_quiz")
                         || conversionId.equals("loaded_results")
+                        || conversionId.equals("data_collected")
+                        || conversionId.equals("quiz_conversion")
                     ) {
                         result.add(new MirrorDestination(
                             "useractivity",
