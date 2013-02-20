@@ -134,8 +134,13 @@ public class DestinationResolver  implements MirrorResolver
                         uidHash
                     ));
                 }
-                else if (action.equals("CONVERSION") && fields.get("objId").equals("sync"))
-                {
+                else if (action.equals("CONVERSION") 
+                    && (
+                        fields.get("objId").equals("sync")
+                        || fields.get("objId").equals("data_sync")
+                        || fields.get("objId").equals("login_data_sync")
+                    )
+                ) {
                     result.add(new MirrorDestination(
                         "datasync", 
                         uidHash
