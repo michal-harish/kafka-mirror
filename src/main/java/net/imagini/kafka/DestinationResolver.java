@@ -45,54 +45,156 @@ public class DestinationResolver  implements MirrorResolver
 
     private final Meter input = Metrics.newMeter(new MetricName(CentralMirror.group, CentralMirror.type,"input"), "messages", TimeUnit.SECONDS);
     private final Meter output = Metrics.newMeter(new MetricName(CentralMirror.group,CentralMirror.type,"output"), "messages", TimeUnit.SECONDS);
-        
+
     static private Logger log = LoggerFactory.getLogger(DestinationResolver.class);
     static private JsonFactory jsonFactory = new JsonFactory();
 
-    /**
-     * Entry point method which decides how to resolve the message depending
-     * on the source topic.
+    /** Using Streaming Jackson API for speed: 
+     *  1. prepare fields we're interetsed in for parititoning purpose
+     *  2. use parsed fields to resolve where the message should go 
      */
     public List<MirrorDestination> resolve(MessageAndMetadata<Message> metaMsg)
     {
+        String originalTopic = metaMsg.topic();
+
         ArrayList<MirrorDestination> result = new ArrayList<MirrorDestination>();
 
-        //prepare fields we're interetsed in for parititoning purpose
         Map<String,String> fields = new HashMap<String,String>();
         fields.put("timestamp", null);
         fields.put("date", null);
-        fields.put("event_type", null);
+        fields.put("type", null); 
+        fields.put("event_type", null); 
         fields.put("userUid", null);
         fields.put("sessionId", null);
-
         fields.put("action", null);
         fields.put("objType", null);
         fields.put("objId", null);
         fields.put("vdna_widget_mc", null);
         fields.put("partner_user_id", null);
-
-        String json = null;
         try {
-            json = parseMinimumJsonMessage(metaMsg.message(), fields);
+            String json = parseMinimumJsonMessage(metaMsg.message(), fields);
+            try {
+                if (originalTopic.equals("tracking_events")) { // messages coming from event trackers
+                    result.addAll(resolveEventTrackerMessage(fields));
+
+                } else { // by deafult messages go to the identical topic partitioned by uuidHash
+                    result.add(
+                        new MirrorDestination(originalTopic, computeMessageUuidHash(fields))
+                    );
+                }
+
+                input.mark();                // Yammer Metrics kafka.central-mirror.Input -> Graphite
+                output.mark(result.size());  // Yammer Metrics kafka.central-mirror.Output-> Graphite
+
+                if (result.size() == 0) log.warn("No destination for messag from `" + originalTopic + "`: " + json);
+
+            } catch (Exception e) {
+                log.error("DesinationResolver encountered serious error while mapping the incoming message to output " + json, e);
+            }
         } catch (Exception e) {
             log.error("Couldn't read JSON ", e);
-            return result;
         }
 
+        return result;
+    }
+
+    private List<MirrorDestination> resolveEventTrackerMessage(Map<String, String> fields) throws Exception {
+
+        ArrayList<MirrorDestination> result = new ArrayList<MirrorDestination>();
+
+        Integer uidHash = computeMessageUuidHash(fields);
+
+        String action = fields.get("action");
+        if (action == null)
+        {
+            throw new Exception("Invalid esVDNAAppUserActionEvent with null action");
+        }
+        /*
+         * Publish into one of the topics for each event type - e.g. primary topic.
+         * Every event has to end up at least in one of the following.
+         */
+        if (action.startsWith("INSERTED_INTO_"))
+        {
+            result.add(new MirrorDestination(
+                "datasync", 
+                uidHash
+            ));
+        }
+        else if (action.equals("CONVERSION") 
+            && (
+                fields.get("objId").equals("sync")
+                || fields.get("objId").equals("data_sync")
+                || fields.get("objId").equals("login_data_sync")
+            )
+        ) {
+            result.add(new MirrorDestination(
+                "datasync", 
+                uidHash
+            ));
+        }
+        else if (action.equals("MINTED_USER_KEY"))
+        {
+            result.add(new MirrorDestination(
+                "datasync", 
+                uidHash
+            ));
+        }
+        else if (action.equals("CONVERSION") && fields.get("objType").equals("CONVERSION"))
+        {
+            String conversionId = fields.get("objId");
+            if (conversionId.equals("loaded_quiz")
+                || conversionId.equals("started_quiz")
+                || conversionId.equals("loaded_results")
+                || conversionId.equals("data_collected")
+                || conversionId.equals("quiz_conversion")
+            ) {
+                result.add(new MirrorDestination(
+                    "useractivity",
+                    uidHash
+                ));
+            } else {
+                result.add(new MirrorDestination(
+                    "conversions", 
+                    uidHash
+                ));
+            }
+        }
+        else if (action.equals("IMPRESSION") && fields.get("objType").equals("AD"))
+        {
+            result.add(new MirrorDestination(
+                "adviews", 
+                uidHash
+            ));
+        }
+        else if (action.equals("CLICK") && fields.get("objType").equals("AD"))
+        {
+            result.add(new MirrorDestination(
+                "adclicks", 
+                uidHash
+            ));
+        }
+        else if (action.equals("PAGE_VIEW"))
+        {
+            result.add(new MirrorDestination(
+                "pageviews", 
+                uidHash
+            ));
+        }
+        return result;
+    }
+
+    private Integer computeMessageUuidHash(Map<String, String> fields) throws Exception {
         String uuid = fields.get("userUid");
         String widget_mc = fields.get("vdna_widget_mc");
         String partner_user_id = fields.get("partner_user_id");
         String sessionId = fields.get("sessionId");
         Integer uidHash = null; 
         try {
-            //figure out User UUID and its hash for partitioning
             if (uuid == null || uuid.equals("null") || uuid.equals("OPT_OUT") || uuid.equals("0"))
             {
                 uuid = null;
-                //TODO JIRA/EDA-19 what is userUid=OPT_OUT
                 if (widget_mc != null && !widget_mc.equals("null") && !widget_mc.equals("OPT_OUT"))
                 {
-                    //TODO JIRA/EDA-19 validate the if this comes from the deterministic generator or a true uuid
                     uuid = widget_mc;
                 }
             }
@@ -108,136 +210,11 @@ public class DestinationResolver  implements MirrorResolver
             } else if (sessionId != null) {
                 uidHash = Math.abs(sessionId.hashCode());
             }
+
         } catch (Exception e3) {
-            log.error("Error while trying to determine uuidHash of the event ", e3);
+            throw new Exception("Error while trying to determine uuidHash of the event ", e3);
         }
-
-        try {
-            //now check event type and resolve accordingly
-            String eventType = fields.get("event_type");
-            if (eventType.equals("esVDNAAppUserActionEvent")) // event tracker message
-            {
-                String action = fields.get("action");
-                if (action == null)
-                {
-                    log.warn("Invalid esVDNAAppUserActionEvent with null action: " + json);
-                    return result;
-                }
-                /*
-                 * Publish into one of the topics for each event type - e.g. primary topic.
-                 * Every event has to end up at least in one of the following.
-                 */
-                if (action.startsWith("INSERTED_INTO_"))
-                {
-                    result.add(new MirrorDestination(
-                        "datasync", 
-                        uidHash
-                    ));
-                }
-                else if (action.equals("CONVERSION") 
-                    && (
-                        fields.get("objId").equals("sync")
-                        || fields.get("objId").equals("data_sync")
-                        || fields.get("objId").equals("login_data_sync")
-                    )
-                ) {
-                    result.add(new MirrorDestination(
-                        "datasync", 
-                        uidHash
-                    ));
-                }
-                else if (action.equals("MINTED_USER_KEY"))
-                {
-                    result.add(new MirrorDestination(
-                        "datasync", 
-                        uidHash
-                    ));
-                }
-                else if (action.equals("CONVERSION") && fields.get("objType").equals("CONVERSION"))
-                {
-                    String conversionId = fields.get("objId");
-                    if (conversionId.equals("loaded_quiz")
-                        || conversionId.equals("started_quiz")
-                        || conversionId.equals("loaded_results")
-                        || conversionId.equals("data_collected")
-                        || conversionId.equals("quiz_conversion")
-                    ) {
-                        result.add(new MirrorDestination(
-                            "useractivity",
-                            uidHash
-                        ));
-                    } else {
-                        result.add(new MirrorDestination(
-                            "conversions", 
-                            uidHash
-                        ));
-                    }
-                }
-                else if (action.equals("IMPRESSION") && fields.get("objType").equals("AD"))
-                {
-                    result.add(new MirrorDestination(
-                        "adviews", 
-                        uidHash
-                    ));
-                }
-                else if (action.equals("CLICK") && fields.get("objType").equals("AD"))
-                {
-                    result.add(new MirrorDestination(
-                        "adclicks", 
-                        uidHash
-                    ));
-                }
-                else if (action.equals("PAGE_VIEW"))
-                {
-                    result.add(new MirrorDestination(
-                        "pageviews", 
-                        uidHash
-                    ));
-                }
-            } else if (eventType.equals("VDNAQuizUserAnswer")) { // quiz engine message
-                result.add(new MirrorDestination(
-                    "useractivity", 
-                    uidHash
-                ));
-            } else {
-                log.warn("Unknown event_type "  + eventType+ " " + json);
-                return result;
-            }
-
-            //Metrics
-            input.mark();
-            output.mark(result.size());
-
-            /*
-             * If the event didn't end up in any primary topic, it's a problem.
-             */
-            if (result.size() == 0)
-            {
-                log.warn("No primary topic for event type `" + eventType + "`: " + json);
-            }
-        } catch (Exception e) {
-            log.error("DesinationResolver encountered serious error while mapping the incoming message to output ", e);
-        }
-
-        // Absolute granularity metrics 
-        try {
-            //Double timestamp = Double.valueOf(fields.get("timestamp")) * 1000;
-            /* TODO JIRA-35 Implement MBean
-            if (timestamp > CentralMirror.latestObservedTimestamp)
-            {
-                CentralMirror.latestObservedTimestamp = timestamp;
-            }
-            if (timestamp < CentralMirror.earliestObservedTimestamp)
-            {
-                CentralMirror.earliestObservedTimestamp = timestamp;
-            }
-            */
-        } catch (Exception e)
-        {
-            log.error("Could not extract timestamp from the json event", e);
-        }
-
-        return result;
+        return uidHash;
     }
 
     private String parseMinimumJsonMessage(Message message, Map<String,String> fields) throws IOException
@@ -277,4 +254,5 @@ public class DestinationResolver  implements MirrorResolver
         }
 
     }
+
 }
