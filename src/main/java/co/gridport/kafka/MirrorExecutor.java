@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import kafka.common.NoBrokersForPartitionException;
 import kafka.consumer.Blacklist;
 import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
@@ -21,6 +22,7 @@ import kafka.javaapi.producer.ProducerData;
 import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
 import kafka.producer.ProducerConfig;
+import kafka.utils.threadsafe;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +71,10 @@ public class MirrorExecutor {
     protected static int maxPartitions = 0;
 
     private boolean started = false; 
+    
+    private boolean noBrokersForPartition = false;
+    private long producerSleepTime = 1000;
+
 
     /**
      * Constructor
@@ -165,7 +171,7 @@ public class MirrorExecutor {
 
         for(final KafkaStream<Message> stream: streams) {
             executor.submit(new Runnable() {
-                public void run() {
+				public void run() {
                     log.debug("KAFKA MIRROR EXECUTOR TASK LISTENING FOR MESSAGES");
                     ConsumerIterator<Message> it = stream.iterator();
                     while(it.hasNext())
@@ -207,9 +213,32 @@ public class MirrorExecutor {
                                 log.debug("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH PARTITIONING KEY " + dest.getKey());
                             }
                         }
-
-                        producer.send(dataForMultipleTopics);
-                    } 
+                        
+                        try{
+                        	producer.send(dataForMultipleTopics);
+                        }catch(Exception e)
+                        {  
+                        	noBrokersForPartition = true;
+                        	
+                        	while(noBrokersForPartition){
+	                        	try {
+									Thread.sleep(producerSleepTime);
+								} catch (InterruptedException e1) {
+									e1.printStackTrace();
+								}
+	                        	
+	                        	try{
+	                        		producer.send(dataForMultipleTopics);
+	                        	}catch(Exception e2)
+	                        	{
+	                        		noBrokersForPartition = true;
+	                        		continue;
+	                        	}
+	                        	
+	                        	noBrokersForPartition = false;
+                        	}
+                        }
+					}
                 }
             });
         }
