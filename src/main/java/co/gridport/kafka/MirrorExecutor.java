@@ -22,7 +22,6 @@ import kafka.javaapi.producer.ProducerData;
 import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
 import kafka.producer.ProducerConfig;
-import kafka.utils.threadsafe;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,9 +70,8 @@ public class MirrorExecutor {
     protected static int maxPartitions = 0;
 
     private boolean started = false; 
-    
-    private boolean noBrokersForPartition = false;
-    private long producerSleepTime = 1000;
+
+    private long suspendTimeoutMs = 30000;
 
 
     /**
@@ -101,6 +99,11 @@ public class MirrorExecutor {
         		"or topics.blacklist property set to a coma-separated list of topics"
             );
         }
+
+        if (consumerProperties.containsKey("suspendtimeout.ms")) {
+            suspendTimeoutMs = Long.valueOf(consumerProperties.getProperty("suspendtimeout.ms"));
+        }
+
         this.resolverClass = resolverClass;
         this.consumerProps = consumerProperties;
         this.producerProps = producerProperties;
@@ -123,6 +126,7 @@ public class MirrorExecutor {
         log.info("Mirror dest ZK: " + producerProps.get("zk.connect"));
         log.info("Mirror dest queue time:" + producerProps.get("queue.time"));
         log.info("Mirror resolver class:" + resolverClass.getName());
+        log.info("Mirror suspend timeout: " + suspendTimeoutMs);
 
         //instantiate resolver
         try {
@@ -213,31 +217,26 @@ public class MirrorExecutor {
                                 log.debug("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH PARTITIONING KEY " + dest.getKey());
                             }
                         }
-                        
-                        try{
-                        	producer.send(dataForMultipleTopics);
-                        }catch(Exception e)
-                        {  
-                        	noBrokersForPartition = true;
-                        	
-                        	while(noBrokersForPartition){
-	                        	try {
-									Thread.sleep(producerSleepTime);
-								} catch (InterruptedException e1) {
-									e1.printStackTrace();
-								}
-	                        	
-	                        	try{
-	                        		producer.send(dataForMultipleTopics);
-	                        	}catch(Exception e2)
-	                        	{
-	                        		noBrokersForPartition = true;
-	                        		continue;
-	                        	}
-	                        	
-	                        	noBrokersForPartition = false;
-                        	}
+
+                        while(true) {
+                            try {
+                                producer.send(dataForMultipleTopics);
+                                break;
+                            } catch(NoBrokersForPartitionException e) {
+                                //this wroks only for async producer
+                                try {
+                                    log.warn(
+                                        "No brokers for partition, suspending consumption for " 
+                                        + (suspendTimeoutMs / 1000) + " s"
+                                    );
+                                    Thread.sleep(suspendTimeoutMs);
+                                } catch (InterruptedException e1) {
+                                    e1.printStackTrace();
+                                    break;
+                                }
+                            }
                         }
+
 					}
                 }
             });
