@@ -1,5 +1,6 @@
 package co.gridport.kafka;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -7,6 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import kafka.common.NoBrokersForPartitionException;
 import kafka.consumer.Blacklist;
 import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
@@ -69,6 +71,9 @@ public class MirrorExecutor {
 
     private boolean started = false; 
 
+    private long suspendTimeoutMs = 30000;
+
+
     /**
      * Constructor
      * 
@@ -94,6 +99,11 @@ public class MirrorExecutor {
         		"or topics.blacklist property set to a coma-separated list of topics"
             );
         }
+
+        if (consumerProperties.containsKey("suspendtimeout.ms")) {
+            suspendTimeoutMs = Long.valueOf(consumerProperties.getProperty("suspendtimeout.ms"));
+        }
+
         this.resolverClass = resolverClass;
         this.consumerProps = consumerProperties;
         this.producerProps = producerProperties;
@@ -116,6 +126,7 @@ public class MirrorExecutor {
         log.info("Mirror dest ZK: " + producerProps.get("zk.connect"));
         log.info("Mirror dest queue time:" + producerProps.get("queue.time"));
         log.info("Mirror resolver class:" + resolverClass.getName());
+        log.info("Mirror suspend timeout: " + suspendTimeoutMs);
 
         //instantiate resolver
         try {
@@ -164,7 +175,7 @@ public class MirrorExecutor {
 
         for(final KafkaStream<Message> stream: streams) {
             executor.submit(new Runnable() {
-                public void run() {
+				public void run() {
                     log.debug("KAFKA MIRROR EXECUTOR TASK LISTENING FOR MESSAGES");
                     ConsumerIterator<Message> it = stream.iterator();
                     while(it.hasNext())
@@ -195,7 +206,11 @@ public class MirrorExecutor {
                             dataForMultipleTopics.add(dataForSingleTopic);
                             if (dest.getKey() == null)
                             {
-                                log.info("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING");
+                                ByteBuffer buffer = metaMsg.message().payload();
+                                byte [] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes);
+                                String payload = new String(bytes);
+                                log.info("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING " + payload);
                             }
                             else
                             {
@@ -203,8 +218,26 @@ public class MirrorExecutor {
                             }
                         }
 
-                        producer.send(dataForMultipleTopics);
-                    } 
+                        while(true) {
+                            try {
+                                producer.send(dataForMultipleTopics);
+                                break;
+                            } catch(NoBrokersForPartitionException e) {
+                                //this wroks only for async producer
+                                try {
+                                    log.warn(
+                                        "No brokers for partition, suspending consumption for " 
+                                        + (suspendTimeoutMs / 1000) + " s"
+                                    );
+                                    Thread.sleep(suspendTimeoutMs);
+                                } catch (InterruptedException e1) {
+                                    e1.printStackTrace();
+                                    break;
+                                }
+                            }
+                        }
+
+					}
                 }
             });
         }
