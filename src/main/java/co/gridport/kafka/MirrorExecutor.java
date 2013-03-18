@@ -196,9 +196,19 @@ public class MirrorExecutor {
                         {
                             destCount++;
                             totalOut++;
-                            ProducerData<Integer,Message> dataForSingleTopic 
+                            String topic = dest.getTopic();
+                            
+                            if(consumerProps.containsKey("topics.prefix")) {
+                            	String topicPrefix = consumerProps.getProperty("topics.prefix");
+                            	
+                            	log.debug("CHANGING TOPIC FROM " + topic + " TO " + topicPrefix + topic);
+
+                            	topic = topicPrefix + topic;
+                            }
+                            
+							ProducerData<Integer,Message> dataForSingleTopic 
                                 = new ProducerData<Integer,Message>(
-                                    dest.getTopic(),
+                                    topic,
                                     dest.getKey(),
                                     messageList
                                 )
@@ -210,11 +220,11 @@ public class MirrorExecutor {
                                 byte [] bytes = new byte[buffer.remaining()];
                                 buffer.get(bytes);
                                 String payload = new String(bytes);
-                                log.info("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH RANDOM PARTITIONING " + payload);
+                                log.info("ADDING MESSAGE TO TOPIC " + topic + " WITH RANDOM PARTITIONING " + payload);
                             }
                             else
                             {
-                                log.debug("ADDING MESSAGE TO TOPIC " + dest.getTopic() + " WITH PARTITIONING KEY " + dest.getKey());
+                                log.debug("ADDING MESSAGE TO TOPIC " + topic + " WITH PARTITIONING KEY " + dest.getKey());
                             }
                         }
 
