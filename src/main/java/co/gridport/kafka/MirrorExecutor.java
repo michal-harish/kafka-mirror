@@ -220,7 +220,7 @@ public class MirrorExecutor {
                                 byte [] bytes = new byte[buffer.remaining()];
                                 buffer.get(bytes);
                                 String payload = new String(bytes);
-                                log.info("ADDING MESSAGE TO TOPIC " + topic + " WITH RANDOM PARTITIONING " + payload);
+                                log.warn("ADDING MESSAGE TO TOPIC " + topic + " WITH RANDOM PARTITIONING " + payload);
                             }
                             else
                             {
