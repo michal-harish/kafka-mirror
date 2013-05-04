@@ -49,7 +49,7 @@ public class Mirror {
             System.exit(1);
         }
     }
-    
+
     /**
      * Constructor - initializes MirrorExecutors but doesn't start them.
      * 
@@ -60,7 +60,7 @@ public class Mirror {
     {
 
         //load resolver class configuration
-        Class<? extends MirrorResolver> resolverClass = null;        
+        Class<? extends MirrorResolver> resolverClass = null;
         try {
             if (!props.containsKey("resolver.class"))
             {
@@ -71,7 +71,7 @@ public class Mirror {
         } catch (Exception e) {
             throw new Exception("Invalid mirror resolver class provided", e);
         }
-        
+
         //prepare producer properties
         Properties producerProperties = new Properties();
         //prepare set of consumer properties
@@ -79,7 +79,7 @@ public class Mirror {
         //transform mirror properties 
         for(Enumeration<Object> e = props.keys(); e.hasMoreElements();)
         {
-            Object propKey = e.nextElement();            
+            Object propKey = e.nextElement();
             String propName = ((String) propKey);
             String propValue = (String) props.get(propKey);
             log.debug("parsing property " + propName+ " = " + propValue);
@@ -90,7 +90,7 @@ public class Mirror {
             {
                 propName = propName.substring(9);
                 Integer mirrorId = Integer.valueOf(propName.substring(0,propName.indexOf(".")));
-                propName = propName.substring(propName.indexOf(".")+1);                
+                propName = propName.substring(propName.indexOf(".")+1);
                 if (!propertiesSet.containsKey(mirrorId))
                 {
                     propertiesSet.put(mirrorId, new Properties());
@@ -104,12 +104,12 @@ public class Mirror {
         }
         if (propertiesSet.isEmpty())
         {
-            throw new Exception("No mirror.<N>.consumer.* properties found");            
+            throw new Exception("No mirror.<N>.consumer.* properties found");
         }
 
-        //Instantiate mirror executors        
+        //Instantiate mirror executors
         for(Integer mirrorId: propertiesSet.keySet())
-        {          
+        {
             log.info("Initializing mirror." + mirrorId);
             try {
                 executors.add(
@@ -124,7 +124,7 @@ public class Mirror {
             }
         }
     }
-    
+
     /**
      * Start mirroring, e.g. start all executor threads
      * @throws Exception When initialization of one of the executors fails
@@ -142,7 +142,7 @@ public class Mirror {
         }
         log.info("Running mirror executors: " + startedExecutors);
     }
-    
+
     /**
      * Stop all executors.
      */
@@ -191,8 +191,8 @@ public class Mirror {
         } catch (InterruptedException e) {
             log.warn("Mirror execution interruped.. ");
         }
-        
+
         stop();
     }
-    
+
 }

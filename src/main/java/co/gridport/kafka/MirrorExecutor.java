@@ -1,6 +1,5 @@
 package co.gridport.kafka;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -18,10 +17,11 @@ import kafka.consumer.TopicFilter;
 import kafka.consumer.Whitelist;
 import kafka.javaapi.consumer.ConsumerConnector;
 import kafka.javaapi.producer.Producer;
-import kafka.javaapi.producer.ProducerData;
-import kafka.message.Message;
 import kafka.message.MessageAndMetadata;
+import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
+import kafka.serializer.Decoder;
+import kafka.serializer.StringDecoder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +53,7 @@ public class MirrorExecutor {
     private ConsumerConnector consumer;
 
     private Properties producerProps;
-    private Producer<Integer, Message> producer;
+    private Producer<Integer, String> producer;
     private Class<? extends MirrorResolver> resolverClass;
 
     private ExecutorService executor;
@@ -72,6 +72,13 @@ public class MirrorExecutor {
     private boolean started = false; 
 
     private long suspendTimeoutMs = 30000;
+    
+    private static class IntDecoder implements Decoder<Integer> {
+        @Override
+        public Integer fromBytes(byte[] bytes) {
+            return Integer.valueOf(new String(bytes));
+        }
+    }
 
 
     /**
@@ -90,13 +97,15 @@ public class MirrorExecutor {
         Class<? extends MirrorResolver> resolverClass
     ) throws Exception 
     {
+        producerProperties.put("serializer.class","kafka.serializer.StringEncoder");
+
         if (consumerProperties.containsKey("topics.whitelist")) {
             sourceTopicFilter = new Whitelist(consumerProperties.getProperty("topics.whitelist"));
         } else if (consumerProperties.containsKey("topics.blacklist")) {
             sourceTopicFilter = new Blacklist(consumerProperties.getProperty("topics.blacklist"));
         } else {
             throw new Exception("Consumer must have either topics.whitelist " +
-        		"or topics.blacklist property set to a coma-separated list of topics"
+                "or topics.blacklist property set to a coma-separated list of topics"
             );
         }
 
@@ -123,7 +132,7 @@ public class MirrorExecutor {
         log.info("Mirror soruce ZK: " + consumerProps.get("zk.connect"));
         log.info("Mirror source topics: " + this.sourceTopicFilter.toString());
         log.info("Mirror source backoff sleep: " + consumerProps.get("backoff.increment.ms"));
-        log.info("Mirror dest ZK: " + producerProps.get("zk.connect"));
+        log.info("Mirror dest broker.list: " + producerProps.get("broker.list"));
         log.info("Mirror dest queue time:" + producerProps.get("queue.time"));
         log.info("Mirror resolver class:" + resolverClass.getName());
         log.info("Mirror suspend timeout: " + suspendTimeoutMs);
@@ -139,7 +148,7 @@ public class MirrorExecutor {
         //prepare producer
         try {
             producerProps.put("partitioner.class", MirrorPartitioner.class.getName());
-            producer = new Producer<Integer, Message>(new ProducerConfig(producerProps));     
+            producer = new Producer<Integer, String>(new ProducerConfig(producerProps));     
         } catch (Exception e)
         {
             log.warn("Mirror producer failed: " + e.getMessage());
@@ -155,7 +164,7 @@ public class MirrorExecutor {
             return false;
         }
 
-        List<KafkaStream<Message>> streams = consumer.createMessageStreamsByFilter(sourceTopicFilter);
+        List<KafkaStream<Integer,String>> streams = consumer.createMessageStreamsByFilter(sourceTopicFilter, 1, new IntDecoder(), new StringDecoder(null));
 
         log.info("Mirror consumer executor pool = " + streams.size());
 
@@ -173,64 +182,57 @@ public class MirrorExecutor {
 
         snapshotTimestamp = System.currentTimeMillis();
 
-        for(final KafkaStream<Message> stream: streams) {
+        for(final KafkaStream<Integer,String> stream: streams) {
             executor.submit(new Runnable() {
 				public void run() {
                     log.debug("KAFKA MIRROR EXECUTOR TASK LISTENING FOR MESSAGES");
-                    ConsumerIterator<Message> it = stream.iterator();
+                    ConsumerIterator<Integer,String> it = stream.iterator();
                     while(it.hasNext())
                     {
-                        MessageAndMetadata<Message> metaMsg = it.next();
+                        MessageAndMetadata<Integer,String> sourceMessage = it.next();
 
-                        log.debug("GOT MESSAGE IN TOPIC " + metaMsg.topic());
-                        List<MirrorDestination> destList = resolver.resolve(metaMsg);
+                        log.debug("GOT MESSAGE IN TOPIC " + sourceMessage.topic());
+                        List<MirrorDestination> destList = resolver.resolve(sourceMessage);
                         srcCount++;
                         totalIn++;
 
-                        ArrayList<Message> messageList = new ArrayList<Message>();
-                        messageList.add(metaMsg.message());
+                        List<KeyedMessage<Integer,String>> messages = new ArrayList<KeyedMessage<Integer,String>>();
 
-                        List<ProducerData<Integer, Message>> dataForMultipleTopics 
-                            = new ArrayList<ProducerData<Integer, Message>>();
                         for(MirrorDestination dest: destList)
                         {
                             destCount++;
                             totalOut++;
-                            String topic = dest.getTopic();
-                            
-                            if(consumerProps.containsKey("topics.prefix")) {
-                            	String topicPrefix = consumerProps.getProperty("topics.prefix");
-                            	
-                            	log.debug("CHANGING TOPIC FROM " + topic + " TO " + topicPrefix + topic);
+                            String destTopic = dest.getTopic();
 
-                            	topic = topicPrefix + topic;
+                            if(consumerProps.containsKey("topics.prefix")) {
+                                String topicPrefix = consumerProps.getProperty("topics.prefix");
+
+                                log.debug("CHANGING TOPIC FROM " + destTopic + " TO " + topicPrefix + destTopic);
+
+                                destTopic = topicPrefix + destTopic;
                             }
-                            
-							ProducerData<Integer,Message> dataForSingleTopic 
-                                = new ProducerData<Integer,Message>(
-                                    topic,
-                                    dest.getKey(),
-                                    messageList
-                                )
-                            ;
-                            dataForMultipleTopics.add(dataForSingleTopic);
+
+                            KeyedMessage<Integer, String> destMessage = new KeyedMessage<Integer,String>(
+                                destTopic,
+                                dest.getKey(), 
+                                sourceMessage.message()
+                            );
+
+                            messages.add(destMessage);
+
                             if (dest.getKey() == null)
                             {
-                                ByteBuffer buffer = metaMsg.message().payload();
-                                byte [] bytes = new byte[buffer.remaining()];
-                                buffer.get(bytes);
-                                String payload = new String(bytes);
-                                log.warn("ADDING MESSAGE TO TOPIC " + topic + " WITH RANDOM PARTITIONING " + payload);
+                                log.warn("ADDING MESSAGE TO TOPIC " + destTopic + " WITH RANDOM PARTITIONING " + sourceMessage.message());
                             }
                             else
                             {
-                                log.debug("ADDING MESSAGE TO TOPIC " + topic + " WITH PARTITIONING KEY " + dest.getKey());
+                                log.debug("ADDING MESSAGE TO TOPIC " + destTopic + " WITH PARTITIONING KEY " + dest.getKey());
                             }
                         }
 
                         while(true) {
                             try {
-                                producer.send(dataForMultipleTopics);
+                                producer.send(messages);
                                 break;
                             } catch(NoBrokersForPartitionException e) {
                                 //this wroks only for async producer
@@ -247,7 +249,7 @@ public class MirrorExecutor {
                             }
                         }
 
-					}
+                    }
                 }
             });
         }

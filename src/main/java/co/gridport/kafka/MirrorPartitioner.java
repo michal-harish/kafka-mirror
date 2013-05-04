@@ -3,6 +3,7 @@ package co.gridport.kafka;
 import java.util.Random;
 
 import kafka.producer.Partitioner;
+import kafka.utils.VerifiableProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +22,10 @@ import org.slf4j.LoggerFactory;
 public final class MirrorPartitioner implements Partitioner<Integer> {
 
     static private Logger log = LoggerFactory.getLogger(MirrorPartitioner.class);
-    
+
     static Random generator = new Random();
+
+    public MirrorPartitioner (VerifiableProperties props) {}
     
     public int partition(Integer key, int numPartitions) {
         int result;
